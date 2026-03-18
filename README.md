@@ -12,6 +12,8 @@ This repository learns a structured mechanics model from simulated trajectories 
 
 The current codebase is experimental and focused on one concrete system: a 2-DoF double pendulum.
 
+![Held-out comparison](results/sample_viz/indist_comparison_0.gif)
+
 ## What The Model Learns
 
 The core network takes:
@@ -60,23 +62,17 @@ The current workflow is:
 
 ## Sample Results
 
-### Held-Out Rollout Comparison
-
-Ground-truth and model trajectories remain qualitatively aligned on held-out test rollouts.
-
-![Held-out comparison](results/sample_viz/indist_comparison_0.gif)
-
 ### Learned Phase Portraits
 
 The model reproduces the overall phase-space structure reasonably well on in-distribution test trajectories.
 
-![In-distribution phase portrait](results/sample_viz/indist_phase_0.png)
+![In-distribution phase portrait](results/sample_viz/indist_pendulum_phase.gif)
 
 ### Out-Of-Distribution Behavior
 
 The repository also includes manual OOD tests over masses and rod lengths outside the training range.
 
-![OOD phase portrait](results/sample_viz/ood_phase_0.png)
+![OOD phase portrait](results/sample_viz/ood_comparison_2.png)
 
 ### Training Curve
 
@@ -138,24 +134,8 @@ uv run mkdocs serve
 - The learned energy regularizer acts on a normalized, model-induced quantity, not the exact physical Hamiltonian in original units.
 - Some repository metadata still needs cleanup, such as the placeholder package name in `pyproject.toml`.
 
-## Documentation
 
-The MkDocs site lives in `docs/` and now covers:
-
-- installation,
-- theory,
-- architecture,
-- usage,
-- examples,
-- API reference.
-
-Serve it locally with:
-
-```bash
-uv run mkdocs serve
-```
-
-## Relevant Papers
+## Inspiration Papers for this work
 
 ### DeLaN
 
@@ -163,19 +143,19 @@ uv run mkdocs serve
   - Paper: <https://arxiv.org/abs/1907.04490>
   - Code: <https://github.com/milutter/deep_lagrangian_networks>
 
-### Energy-Based Control Extension
+<!-- ### Energy-Based Control Extension
 
 - DeLaN for energy-based control (Lutter et al., IROS 2019)
-  - Paper: <https://arxiv.org/abs/1907.04489>
+  - Paper: <https://arxiv.org/abs/1907.04489> -->
 
 ### Lagrangian Neural Networks
 
 - Lagrangian Neural Networks (Cranmer et al., 2020)
   - Paper: <https://arxiv.org/abs/2003.04630>
 
-### Context-Aware And Floating-Base Variants
+<!-- ### Context-Aware And Floating-Base Variants
 
 - Context-Aware DeLaN / CaDeLaC (Schulze et al., 2025)
   - Paper: <https://arxiv.org/abs/2506.15249>
 - Floating-Base DeLaN / FeLaN (Schulze et al., 2025)
-  - Paper: <https://arxiv.org/abs/2510.17270>
+  - Paper: <https://arxiv.org/abs/2510.17270> -->
