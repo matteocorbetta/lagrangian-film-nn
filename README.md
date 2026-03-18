@@ -1,17 +1,18 @@
 # Lagrangian-FiLM NN
 
-Parameter-conditioned Lagrangian neural networks for double-pendulum dynamics in JAX/Equinox.
+Parameter-conditioned Lagrangian neural networks for double-pendulum dynamics in `JAX/Equinox`.
 
 This repository learns a structured mechanics model from simulated trajectories of a double pendulum with varying masses and rod lengths. The model combines:
 
 - a learned Lagrangian formulation,
-- a FiLM-conditioned kinetic branch,
+- a Feature-wise Linear Modulation (FiLM)-conditioned kinetic branch,
 - a learned potential branch,
 - automatic differentiation of the Euler-Lagrange equations,
 - rollout-based evaluation on held-out and out-of-distribution parameter settings.
 
 The current codebase is experimental and focused on one concrete system: a 2-DoF double pendulum.
 
+**Blind test of ground truth vs. model given same initial conditions**:
 ![Held-out comparison](results/sample_viz/indist_comparison_0.gif)
 
 ## What The Model Learns
