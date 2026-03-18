@@ -67,19 +67,13 @@ The current workflow is:
 
 The model reproduces the overall phase-space structure reasonably well on in-distribution test trajectories.
 
-![In-distribution phase portrait](results/sample_viz/indist_pendulum_phase.gif)
+![In-distribution phase portrait](results/sample_viz/indist_pendulum_phase_0.gif)
 
 ### Out-Of-Distribution Behavior
 
 The repository also includes manual OOD tests over masses and rod lengths outside the training range.
 
 ![OOD phase portrait](results/sample_viz/ood_comparison_2.png)
-
-### Training Curve
-
-Training and validation loss both decrease steadily over the main run currently stored in `src/models/`.
-
-![Training loss](src/models/model_T512_20260317_133032_loss_history.png)
 
 ### Structural Validation
 
