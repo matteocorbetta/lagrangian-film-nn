@@ -1,0 +1,19 @@
+site_name: Lagrangian FiLM NN
+repo_url: https://github.com/matteocorbetta/lagrangian-film-nn
+theme:
+  name: material
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [src]
+          options:
+            docstring_style: google
+nav:
+  - Home: index.md
+  - Installation: installation.md
+  - Theory: theory.md
+  - Architecture: architecture.md
+  - Usage: usage.md
+  - API Reference: api.md
