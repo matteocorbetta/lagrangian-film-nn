@@ -73,7 +73,7 @@ The model reproduces the overall phase-space structure reasonably well on in-dis
 
 The repository also includes manual OOD tests over masses and rod lengths outside the training range.
 
-![OOD phase portrait](results/sample_viz/ood_comparison_2.png)
+![OOD phase portrait](results/sample_viz/ood_comparison_2.gif)
 
 ### Structural Validation
 
