@@ -261,9 +261,12 @@ def animate_trajectory_on_V(states, model, norm_stats, params_phys, pendulum, fp
                              jnp.sin(q2), jnp.cos(q2)])
         return model.compute_potential(trig_q, p_norm)
 
+    # Build numpy arrays for plotting
     V_grid = np.array(jax.vmap(jax.vmap(model_V))(Q1, Q2))
+    Q1     = np.asarray(Q1)
+    Q2     = np.asarray(Q2)
 
-    states_ds = states[::speedup]
+    states_ds = np.asarray(states[::speedup])
     T_total = len(states_ds)
 
     fig, axes = plt.subplots(1, 2, figsize=(12, 5))

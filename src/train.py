@@ -1,18 +1,11 @@
 
 from pathlib import Path
 from typing import List, Tuple
-import datetime
 import jax
 import optax
 import jax.numpy as jnp
 import equinox as eqx
-from lnn import LagrangianNN
-from data import load_list_of_arrays_from_h5
-
-import numpy as np
-import matplotlib.pyplot as plt
-from train_utils import normalize_data, build_temporal_batch, build_input_output, train_test_split
-from train_utils import save_model, load_model
+from train_utils import build_temporal_batch
 from losses import energy_conservation_loss
 
 
@@ -208,6 +201,7 @@ def training_loop(
             val_loss = sum(val_loss)/len(val_loss)
             val_loss_history.append(float(val_loss))
 
+            # Update best model according to val_loss assessment
             if val_loss < best_val_loss:
                 best_val_loss    = val_loss
                 best_model       = model        # Save the current model if it's the best
@@ -221,7 +215,7 @@ def training_loop(
                     print(f"Early stopping at step {step+1} due to no improvement in validation loss.")
                     break # Exit the training loop
         else:
-            val_loss_history.append(np.nan)
+            val_loss_history.append(jnp.nan)
 
         if (step + 1) % PRINT_EVERY == 0 and (step + 1) % EVAL_EVERY != 0: # Avoid double printing
             print(f"Step {step+1:4d} | Train Loss: {loss:.8f} ")
@@ -231,6 +225,16 @@ def training_loop(
 
 if __name__ == '__main__':
 
+    # Imports for training loop
+    # ============================
+    import datetime
+    import numpy as np
+    import matplotlib.pyplot as plt
+    from lnn import LagrangianNN
+    from data import load_list_of_arrays_from_h5
+    from train_utils import save_model, load_model
+    from train_utils import normalize_data, train_test_split, build_input_output
+
     print("Training script for JAX models")    
 
     # DATASET
@@ -239,7 +243,6 @@ if __name__ == '__main__':
     
     datasets, params = load_list_of_arrays_from_h5(system='doublependulum', filename='dp_trajectories.h5')
     dt = datasets[0][1, 0] - datasets[0][0, 0]
-    time_v = datasets[0][:, 0]
     pos_dim = 2
     vel_dim = 2
     param_dim = 4
@@ -313,7 +316,7 @@ if __name__ == '__main__':
     # Plot and save learning curve
     # ==================
     loss_window = 20
-    smoothed_loss_train = jnp.convolve(np.array(loss_history), jnp.ones(loss_window)/loss_window, mode='valid')
+    smoothed_loss_train = np.convolve(np.array(loss_history), np.ones(loss_window)/loss_window, mode='valid')
     smoothed_loss_val = np.array(val_loss_history)
 
     # Save learning curves

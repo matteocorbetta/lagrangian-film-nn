@@ -1,10 +1,6 @@
 # Generate double pendulum trajectories
-from numpy.random import MT19937
-from numpy.random import RandomState, SeedSequence
-
 from jax import config
 config.update('jax_enable_x64', True)
-import numpy as np
 
 import jax
 import jax.numpy as jnp
@@ -16,33 +12,51 @@ import equinox as eqx
 # ==========
 GRAVITY = 9.806
 
+
+def _make_rng(random_seed: int) -> jax.Array:
+    return jax.random.PRNGKey(random_seed)
+
 # SYSTEM INITIALIZATION
 # =====================
-def angular_state_initial_conditions(n_samples : int, n_pendulums: int = 2, random_seed: int = 123456789, data_type=np.float32) -> np.array:
-    rs = RandomState(MT19937(SeedSequence(random_seed)))
-    q0 = rs.uniform(low=-np.pi/2, high=np.pi/2, size=(n_samples, n_pendulums)).astype(data_type)
-    q0_dot = rs.uniform(low=-np.pi/5, high=np.pi/5, size=(n_samples, n_pendulums)).astype(data_type)
-    x0 = np.concatenate((q0, q0_dot), axis=1)
+def angular_state_initial_conditions(n_samples : int, n_pendulums: int = 2, random_seed: int = 123456789, data_type=jnp.float32) -> jax.Array:
+    key = _make_rng(random_seed)
+    q_key, qdot_key = jax.random.split(key)
+    q0 = jax.random.uniform(
+        q_key,
+        shape=(n_samples, n_pendulums),
+        minval=-jnp.pi / 2,
+        maxval=jnp.pi / 2,
+        dtype=data_type,
+    )
+    q0_dot = jax.random.uniform(
+        qdot_key,
+        shape=(n_samples, n_pendulums),
+        minval=-jnp.pi / 5,
+        maxval=jnp.pi / 5,
+        dtype=data_type,
+    )
+    x0 = jnp.concatenate((q0, q0_dot), axis=1)
     return x0
 
-def mass_length_samples(n_samples: int, n_pendulums: int = 2, random_seed: int = 123456789) -> np.array:
-    rs = RandomState(MT19937(SeedSequence(random_seed)))
+def mass_length_samples(n_samples: int, n_pendulums: int = 2, random_seed: int = 123456789) -> dict:
+    key = _make_rng(random_seed)
+    m1_key, ratio_key, l1_key, l2_key = jax.random.split(key, 4)
     
     bob_mass = []
-    m1 = rs.lognormal(mean=0., sigma=0.3, size=n_samples)
+    m1 = jnp.exp(0.3 * jax.random.normal(m1_key, shape=(n_samples,)))
     bob_mass.append(m1)
     for _ in range(n_pendulums-1):
-        ratio = rs.uniform(0.2, 1.0, size=n_samples)  # m2/m1 bounded
+        ratio = jax.random.uniform(ratio_key, shape=(n_samples,), minval=0.2, maxval=1.0)  # m2/m1 bounded
         bob_mass.append(m1 * ratio)
-    bob_mass = np.stack(bob_mass).T
+    bob_mass = jnp.stack(bob_mass).T
 
     stick_length = []
-    l1 = rs.uniform(low=0.9, high=2.0, size=n_samples)
-    l2 = l1 * rs.uniform(0.9, 1.1, size=n_samples)
-    l2 = np.clip(l2, a_min=0.8, a_max=None)
+    l1 = jax.random.uniform(l1_key, shape=(n_samples,), minval=0.9, maxval=2.0)
+    l2 = l1 * jax.random.uniform(l2_key, shape=(n_samples,), minval=0.9, maxval=1.1)
+    l2 = jnp.clip(l2, a_min=0.8)
     stick_length.append(l1)
     stick_length.append(l2)
-    stick_length = np.stack(stick_length).T
+    stick_length = jnp.stack(stick_length).T
 
     return {'mass': bob_mass, 'length': stick_length}
 
@@ -96,13 +110,13 @@ class DoublePendulum(eqx.Module):
         V = self.potential_energy(q)
         return T + V
     
-    def to_cartesian(self, q: jnp.array):
+    def to_cartesian(self, q: jax.Array):
         """Convert angles to Cartesian coordinates."""
         q1, q2 = q
-        x1 = self.l1 * np.sin(q1)
-        y1 = -self.l1 * np.cos(q1)
-        x2 = x1 + self.l2 * np.sin(q2)
-        y2 = y1 - self.l2 * np.cos(q2)
+        x1 = self.l1 * jnp.sin(q1)
+        y1 = -self.l1 * jnp.cos(q1)
+        x2 = x1 + self.l2 * jnp.sin(q2)
+        y2 = y1 - self.l2 * jnp.cos(q2)
         return x1, y1, x2, y2
     
     @staticmethod
@@ -114,8 +128,8 @@ class DoublePendulum(eqx.Module):
         V_max = (m1 + m2) * g * l1 + m2 * g * l2
         
         # Total energy at initial condition
-        T = 0.5 * m1 * (l1*w1)**2 + 0.5 * m2 * ((l1*w1)**2 + (l2*w2)**2 + 2*l1*l2*w1*w2*np.cos(t1-t2))
-        V = -(m1 + m2) * g * l1 * np.cos(t1) - m2 * g * l2 * np.cos(t2)
+        T = 0.5 * m1 * (l1*w1)**2 + 0.5 * m2 * ((l1*w1)**2 + (l2*w2)**2 + 2*l1*l2*w1*w2*jnp.cos(t1-t2))
+        V = -(m1 + m2) * g * l1 * jnp.cos(t1) - m2 * g * l2 * jnp.cos(t2)
         H = T + V
         
         return H < V_max
@@ -138,106 +152,8 @@ class DoublePendulum(eqx.Module):
         return jnp.stack([w1, w2, g1, g2])
 
 
-def integrate_trajectory(times, doublependulum, rtol=1e-10, atol=1e-10):
-    
-    def diffrax_ode_fun(t, y, args):
-        dp_instance = args
-        return dp_instance.analytical_state_transition(y, t)
-    
-    term = diffrax.ODETerm(diffrax_ode_fun)
-    solver = diffrax.Dopri5() # An adaptive Runge-Kutta 4/5 solver
-
-    # Initial time, final time
-    t0 = times[0]
-    t1 = times[-1]
-
-    # Error control (adaptive step sizing)
-    stepsize_controller = diffrax.PIDController(rtol=rtol, atol=atol)
-
-    # Specify when to save the output (at the `times` array points)
-    saveat = diffrax.SaveAt(ts=jnp.asarray(times))
-
-     # Solve the ODE
-    sol = diffrax.diffeqsolve(
-        term,
-        solver,
-        t0,
-        t1,
-        dt0=0.001, # Initial guess for the step size
-        y0=x0,
-        args=doublependulum, # Pass the DoublePendulum instance as args
-        saveat=saveat,
-        stepsize_controller=stepsize_controller,
-        max_steps=None # Allow as many steps as needed for the given tolerance
-    )
-
-    # The trajectory is in sol.ys
-    x_t = sol.ys
-    # --- End Diffrax Integration ---
-
-    return x_t
-
 
 if __name__ == '__main__':
 
-    # GENERATE DOBULE PENDULUM DATA
-    # =================================
-    import matplotlib.pyplot as plt
-    from jax.experimental.ode import odeint
-    import diffrax
-
-    # Define simulation variables:
-    t_span = [0, 40]    # time span
-    num_steps = int( 200 * (t_span[1] - t_span[0]) )    # number of time steps
-    times = np.linspace(t_span[0], t_span[1], num_steps)
+    print('Double Pendulum Data')
     
-    # Initialize state vector x(t=0)
-    x0 = np.array([1*np.pi/7, 1*np.pi/4, 0.0, 0.0], dtype=np.float64)
-
-    # Initialize double pendulum
-    dp = DoublePendulum(m1=1.0, m2=0.5, l1=1.0, l2=0.5)
-
-    # Integrate dobule pendulum analytical equation
-    x_t = integrate_trajectory(times, dp, rtol=1e-10, atol=1e-10)
-
-    # x_t = odeint(dp.analytical_state_transition, x0, t=times, rtol=1e-10, atol=1e-10)
-
-    # Extract variables for plotting
-    t1, t2, w1, w2 = x_t[:, 0], x_t[:, 1], x_t[:, 2], x_t[:, 3]
-
-    t1_wrapped = (t1 + np.pi) % (2.0 * np.pi) - np.pi
-    t2_wrapped = (t2 + np.pi) % (2.0 * np.pi) - np.pi
-
-    fig = plt.figure()
-    ax1 = fig.add_subplot(211)
-    ax1.plot(times, t1_wrapped, '-', label='pendulum 1')
-    ax1.plot(times, t2_wrapped, '--', label='pendulum 2')
-    ax1.set_ylabel('angle, rad')
-    ax1.legend(fontsize=12)
-    ax2 = fig.add_subplot(212)
-    ax2.plot(times, w1, '-', label='pendulum 1')
-    ax2.plot(times, w2, '--', label='pendulum 2')
-    ax2.set_ylabel('angular velocity, rad/s')
-
-    # Verifying correctness
-    # ======================
-    # reconstruct the energy at every time stamp
-    q     = (t1_wrapped, t2_wrapped)
-    q_dot = (w1, w2)
-
-    def H_single(row):
-        return dp.hamiltonian_fn((row[0], row[1]), (row[2], row[3]))
-    
-    H = jax.vmap(H_single)(x_t)
-    H_max_drift = np.max(H) - np.min(H)
-
-    fig = plt.figure()
-    ax = fig.add_subplot(111)
-    ax.plot(times, H - H[0])
-    ax.set_title("Total energy drift from initial value (should be around 0)")
-    ax.set_ylabel("Hamiltonian (T+V) [J]")
-    
-    print(f"Maximum Energy drift: {H_max_drift:.2e}")
-
-
-    plt.show()

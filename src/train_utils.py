@@ -183,31 +183,27 @@ def build_input_output(datasets: List[jax.Array], params: List[jax.Array], dt: f
                              Features order: [q1, q2, w1, w2, m1, m2, l1, l2].
             - dXdt (jax.Array): Computed accelerations, shape (num_trajectories, time_steps, 2).
     """
-    X, dXdt = [], []
+    X_np, dXdt_np = [], []
     for i, traj in enumerate(datasets):
-        # Get the state vector and its derivative
-        # ----------------------------------------
-        x = traj[:, 1:]
-        xdot = np.gradient(np.array(x[:, 2:]), dt, axis=0, edge_order=2)
+        # Keep preprocessing in NumPy here: np.gradient is robust for the offline
+        # derivative estimate used to build supervision targets.
+        x_np = np.asarray(traj[:, 1:])
+        xdot_np = np.gradient(x_np[:, 2:], dt, axis=0, edge_order=2)
         
-        # get the parameters
-        # ----------------
-        p = params[i]
-        # Tile parameters to match the time_steps dimension of x
-        p_tiled = np.tile(p, (x.shape[0], 1))
+        # Tile physical parameters to match the trajectory length before converting
+        # the assembled arrays to JAX.
+        p_np = np.asarray(params[i])
+        p_tiled_np = np.tile(p_np, (x_np.shape[0], 1))
         
-        # augmented state vector  [q1, q2, w1, w2, m1, m2, l1, l2]
-        # --------------------        
-        x = jnp.concatenate([x, p_tiled], axis=1)
+        # Augmented state vector: [q1, q2, w1, w2, m1, m2, l1, l2]
+        x_aug_np = np.concatenate([x_np, p_tiled_np], axis=1)
 
-        # store variables for stacking layer
-        # ----------------
-        X.append(x)
-        dXdt.append(xdot)
+        X_np.append(x_aug_np)
+        dXdt_np.append(xdot_np)
     
-    # Stack into 3D array
-    X = jnp.stack(X)
-    dXdt = jnp.stack(dXdt)
+    # Convert once at the end so downstream training code can stay in JAX.
+    X = jnp.asarray(np.stack(X_np))
+    dXdt = jnp.asarray(np.stack(dXdt_np))
     return X, dXdt
 
 
@@ -308,4 +304,3 @@ def run_diagnostics(model: eqx.Module,
     M22_phys = p[1] * p[3]**2
     print(f"physical M11: {M11_phys:.3f}, M22: {M22_phys:.3f}")
     print(f"model    M11: {l_qt_qt[0,0]:.3f}, M22: {l_qt_qt[1,1]:.3f}")
-    
