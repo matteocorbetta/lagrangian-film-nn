@@ -1,0 +1,23 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Others
+.DS_Store
+
+# Folder to ignore
+/data/
+kinpot_decomposition/
+ood_tests/
+rollouts/
+results/sample_viz/
+
+# Specific files to add from ignored folders
+
