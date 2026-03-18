@@ -10,15 +10,16 @@ class LagrangianNN(eqx.Module):
     Neural Network model designed to learn the Lagrangian of a physical system,
     which is defined as the difference between kinetic and potential energy (T - V).
 
-    This model comprises two main components:
-    1.  `lagrangian_net`: An MLP that approximates the scalar Lagrangian value
-        given the system's generalized coordinates (q), generalized velocities (q_dot),
-        and potentially derived trigonometric features of q.
-    2.  `film_net`: A FiLM (Feature-wise Linear Modulation) network that generates
-        scaling (gamma) and shifting (beta) parameters for the hidden layers of
-        `lagrangian_net`. These parameters allow the model to be conditioned
-        on system properties (e.g., masses, lengths of a pendulum).
-
+    The model consists of three core modules:
+    1. kinetic_net - an MLP that maps trigonometric features of the generalized coordinates (q) 
+    and the system parameters (p) to a Cholesky-factorised mass matrix. The output of this net is used to compute the kinetic energy T.
+    
+    2. potential_net - an MLP that takes the same trigonometric features together with 
+    the parameters (p) and outputs a scalar potential energy V.
+    
+    4. film_net - a Feature-wise Linear Modulation (FiLM) network that generates per-layer scaling (\gamma) and shifting (β) parameters for the hidden layers of kinetic_net. 
+    These parameters are conditioned on the system parameters (e.g. masses, lengths) and thus allow the kinetic energy to be modulated by the physics of the specific system.
+    
     The `__call__` method of this class uses automatic differentiation (jax.grad, jax.jacobian)
     on the learned Lagrangian to derive the system's equations of motion, returning
     the generalized accelerations (q_tt).
@@ -99,6 +100,12 @@ class LagrangianNN(eqx.Module):
 
     
     def apply_film(self, h, film_params, net):
+        """
+        Run network net by applying FILM parameters onto its hidden layers
+
+        Args:
+            h
+        """
         for i in range(self.n_hidden):
             # Compute layer transformation
             h = net.layers[i](h)
