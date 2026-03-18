@@ -41,7 +41,8 @@ def compute_loss(model, x, y, split_size=2):
         split_size: int, where to split the state vector between position, velocities and parameters
     
     Returns:
-        loss composed of prediction error on acceleration (huber loss) + variance of energy conservation over entire chunk of trajectory.
+        loss composed of prediction error on normalized accelerations (Huber loss)
+        plus a regularizer on normalized energy conservation over the trajectory chunk.
     """
     batch_q, batch_qt, batch_params = jnp.split(x, [split_size, split_size*2], axis=-1)    # split state into q and qdot
     preds    = jax.vmap(model)(batch_q, batch_qt, batch_params) # compute prediction with the model
@@ -160,7 +161,7 @@ def training_loop(
     # ======================
 
     # Initialization of variables
-    train_loss_history, val_loss_histor = [], []
+    train_loss_history, val_loss_history = [], []
 
     # early stopping parameters
     best_val_loss    = jnp.inf
@@ -174,8 +175,8 @@ def training_loop(
         
         # Get batch
         # ---------
-        # NOTE: Define the batching strategy: 
-        # each batch is one trajectory, with length of batch size 
+        # Current batching strategy: sample one trajectory chunk per optimization step.
+        # Here `batch_size` is used as the temporal chunk length.
         x_batch, y_batch = build_temporal_batch(x=x_train, 
                                                 y=y_train, 
                                                 batch_size=1, 
@@ -293,13 +294,20 @@ if __name__ == '__main__':
 
     # Save model
     # -----------
-    m_name = f"model_T{BATCH_SIZE}_{datetime.datetime.now().strftime("%Y%m%d_%H%M%S")}"
+    m_name = f"model_T{BATCH_SIZE}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}"
     save_model_path = MODEL_DIR / m_name
     save_model(model=model, fname=save_model_path)
 
     # Reload model
     # --------------
-    model = LagrangianNN(pos_dim=pos_dim,vel_dim=pos_dim, param_dim=param_dim,hidden_dim=128, n_hidden=2,key=model_key)
+    model = LagrangianNN(
+        pos_dim=pos_dim,
+        vel_dim=pos_dim, 
+        param_dim=param_dim,
+        hidden_dim=128, 
+        n_hidden=2,
+        key=model_key
+    )
     model = load_model(model=model, fname=save_model_path)
 
     # Plot and save learning curve

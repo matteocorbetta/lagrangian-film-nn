@@ -7,22 +7,28 @@ import equinox as eqx
 
 class LagrangianNN(eqx.Module):
     """
-    Neural Network model designed to learn the Lagrangian of a physical system,
-    which is defined as the difference between kinetic and potential energy (T - V).
+    Neural network model for learning a structured Lagrangian representation of a
+    physical system.
 
     The model consists of three core modules:
-    1. kinetic_net - an MLP that maps trigonometric features of the generalized coordinates (q) 
-    and the system parameters (p) to a Cholesky-factorised mass matrix. The output of this net is used to compute the kinetic energy T.
+    1. kinetic_net - an MLP that maps trigonometric features of the generalized
+    coordinates (q) to a Cholesky-factorised mass matrix representation. This
+    branch does not take system parameters as direct inputs; instead, it is
+    conditioned on normalized system parameters through FiLM modulation.
     
-    2. potential_net - an MLP that takes the same trigonometric features together with 
-    the parameters (p) and outputs a scalar potential energy V.
+    2. potential_net - an MLP that takes the same trigonometric features together
+    with the normalized system parameters (p) and outputs a scalar normalized
+    potential energy.
     
-    4. film_net - a Feature-wise Linear Modulation (FiLM) network that generates per-layer scaling (\gamma) and shifting (β) parameters for the hidden layers of kinetic_net. 
-    These parameters are conditioned on the system parameters (e.g. masses, lengths) and thus allow the kinetic energy to be modulated by the physics of the specific system.
+    3. film_net - a Feature-wise Linear Modulation (FiLM) network that generates
+    per-layer scaling (gamma) and shifting (beta) parameters for the hidden layers
+    of kinetic_net. These parameters are conditioned on the normalized system
+    parameters (e.g. masses, lengths) and thus allow the normalized kinetic energy
+    branch to adapt across different system configurations.
     
     The `__call__` method of this class uses automatic differentiation (jax.grad, jax.jacobian)
-    on the learned Lagrangian to derive the system's equations of motion, returning
-    the generalized accelerations (q_tt).
+    on the learned normalized Lagrangian to derive the system's equations of motion,
+    returning the generalized accelerations (q_tt).
     """
     kinetic_net:    eqx.nn.MLP
     potential_net:  eqx.nn.MLP
@@ -84,7 +90,8 @@ class LagrangianNN(eqx.Module):
 
         # Feature-wIse Linear Modulation (FiLM)
         # ====================================
-        # outputs two parameters for each hidden layer of the lagrangian mlp to help parameterize by the mass and length of the pendulum
+        # Outputs two FiLM parameters per hidden layer to condition the kinetic branch
+        # on the normalized pendulum parameters.
         self.film_net = eqx.nn.MLP(
             in_size=param_dim, 
             out_size = 2 * n_hidden,
@@ -101,10 +108,13 @@ class LagrangianNN(eqx.Module):
     
     def apply_film(self, h, film_params, net):
         """
-        Run network net by applying FILM parameters onto its hidden layers
+        Runs a network while applying FiLM modulation to each hidden layer.
 
         Args:
-            h
+            h: Input features for the network.
+            film_params: Per-layer FiLM parameters of shape (n_hidden, 2), storing
+                [gamma, beta] for each hidden layer.
+            net: Network whose hidden activations are modulated.
         """
         for i in range(self.n_hidden):
             # Compute layer transformation
@@ -128,27 +138,23 @@ class LagrangianNN(eqx.Module):
 
     def compute_lagrangian(self, q: jax.Array, q_t: jax.Array, p: jax.Array) -> jax.Array:    
         
-        # Transform to trigonometric values 
-        # to avoid numerical instability due to discontinuity at 0,2pi point (or -pi, pi)
-        # =======================
+        # Transform angles to trigonometric features to avoid discontinuities at
+        # angle wraparound. Angles are kept in their original scale, while
+        # velocities and parameters are normalized elsewhere for optimization
+        # stability.
         trig_q = []
         for qi in q:
             trig_q.extend([jnp.sin(qi), jnp.cos(qi)])
         trig_q = jnp.array(trig_q)
         
-        # Compute FiLM parameters 
-        # =======================
-        # (gamma, beta) from system parameters 'p'
-        # Reshape to (n_hidden, 2) where each row is [gamma_i, beta_i]
+        # Compute FiLM parameters from the normalized system parameters.
+        # Reshape to (n_hidden, 2) where each row is [gamma_i, beta_i].
         film_params = self.film_net(p).reshape(self.n_hidden, 2)
 
-        # Compute kinetic energy
-        # =======================
-        # h = self.apply_film(trig_q, film_params, self.kinetic_net)
-        # chol_entries = self.kinetic_net.layers[self.n_hidden](h)
+        # Compute the normalized kinetic energy.
         chol_entries = self.compute_cholesky_entries(trig_q, film_params)
 
-        # Cholesky decomposition of Mass matrix
+        # Build the positive-definite matrix used in the normalized kinetic energy term.
         L = jnp.array([
             [jax.nn.softplus(chol_entries[0]),                               0.0],
             [chol_entries[1],                   jax.nn.softplus(chol_entries[2])]
@@ -157,19 +163,21 @@ class LagrangianNN(eqx.Module):
         M = L.T @ L + jnp.eye(2) * 1e-6
         T = 0.5 * q_t @ M @ q_t
         
-        # Compute potential energy
-        # =======================
+        # Compute the normalized potential energy.
         V = self.compute_potential(trig_q, p)
         
+        # Return the learned structured Lagrangian in normalized coordinates.
         return T - V
     
     def __call__(self, q: jax.Array, q_t: jax.Array, p: jax.Array) -> jax.Array:
-        """Derives and returns the generalized accelerations (q_tt) from the learned Lagrangian.
+        """Derives and returns the generalized accelerations (q_tt) from the
+        learned normalized Lagrangian.
 
         This method applies Euler-Lagrange equations via automatic differentiation
         to compute the accelerations:
         M(q) * q_tt = f(q, q_t)
-        where M = d^2L / (dq_t dq_t) (Mass Matrix)
+        where M = d^2L / (dq_t dq_t), i.e. the Hessian of the normalized kinetic
+        energy term with respect to generalized velocities
         and f = dL/dq - d/dt(dL/dq_t) = dL/dq - (dL/dq_t dq)q_t - (dL/dq_t dq_t)q_tt (effectively)
         Rearranging and solving for q_tt.
 
@@ -221,4 +229,3 @@ if __name__ == '__main__':
 
     # Check input sizes after init
     print(f"LagrangianNet kinetic input size: {model_trig.kinetic_net.in_size}") # Should be (2*2 + 2) = 6
-

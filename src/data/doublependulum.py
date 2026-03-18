@@ -20,8 +20,8 @@ GRAVITY = 9.806
 # =====================
 def angular_state_initial_conditions(n_samples : int, n_pendulums: int = 2, random_seed: int = 123456789, data_type=np.float32) -> np.array:
     rs = RandomState(MT19937(SeedSequence(random_seed)))
-    q0 = np.random.uniform(low=-np.pi/2, high=np.pi/2, size=(n_samples, n_pendulums)).astype(data_type)
-    q0_dot = np.random.uniform(low=-np.pi/5, high=np.pi/5, size=(n_samples, n_pendulums)).astype(data_type)
+    q0 = rs.uniform(low=-np.pi/2, high=np.pi/2, size=(n_samples, n_pendulums)).astype(data_type)
+    q0_dot = rs.uniform(low=-np.pi/5, high=np.pi/5, size=(n_samples, n_pendulums)).astype(data_type)
     x0 = np.concatenate((q0, q0_dot), axis=1)
     return x0
 
@@ -29,16 +29,16 @@ def mass_length_samples(n_samples: int, n_pendulums: int = 2, random_seed: int =
     rs = RandomState(MT19937(SeedSequence(random_seed)))
     
     bob_mass = []
-    m1 = np.random.lognormal(mean=0., sigma=0.3, size=n_samples)
+    m1 = rs.lognormal(mean=0., sigma=0.3, size=n_samples)
     bob_mass.append(m1)
     for _ in range(n_pendulums-1):
-        ratio = np.random.uniform(0.2, 1.0, size=n_samples)  # m2/m1 bounded
+        ratio = rs.uniform(0.2, 1.0, size=n_samples)  # m2/m1 bounded
         bob_mass.append(m1 * ratio)
     bob_mass = np.stack(bob_mass).T
 
     stick_length = []
-    l1 = np.random.uniform(low=0.9, high=2.0, size=n_samples)
-    l2 = l1 * np.random.uniform(0.9, 1.1, size=n_samples)
+    l1 = rs.uniform(low=0.9, high=2.0, size=n_samples)
+    l2 = l1 * rs.uniform(0.9, 1.1, size=n_samples)
     l2 = np.clip(l2, a_min=0.8, a_max=None)
     stick_length.append(l1)
     stick_length.append(l2)

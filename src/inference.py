@@ -85,9 +85,11 @@ def test_ood(model, norm_stats, x0, dt, n_steps, params_ood, fname_prefix: str, 
 
 def plot_energy(model, state0_full, dt, n_steps, norm_stats):
     """
-    Rollout the model and plot H(t) = T + V along the trajectory.
+    Roll out the model and plot the drift of its normalized Hamiltonian over
+    time.
     
-    state0_full: [q1, q2, w1, w2, p_norm...] — physical state + normalized params
+    state0_full: [q1, q2, w1, w2, p_norm...] where the state is physical and the
+    parameters are normalized for the model.
     
     """
     rollout_fn = make_rollout(n_steps=n_steps, norm_stats=norm_stats)
@@ -112,7 +114,7 @@ def plot_energy(model, state0_full, dt, n_steps, norm_stats):
         V = model.compute_potential(trig_q, p_norm)
         return T + V
 
-    # model H along rollout
+    # Model normalized Hamiltonian along rollout
     H_model = jax.vmap(compute_H)(states_[:, :4])
     H_drift_relative = (H_model - H_model[0]) / jnp.abs(H_model[0])
     t = jnp.arange(n_steps) * dt
@@ -123,8 +125,8 @@ def plot_energy(model, state0_full, dt, n_steps, norm_stats):
     ax.plot(t, H_drift_relative*100, label='model H drift')
     ax.axhline(0, color='k', linewidth=0.5)
     ax.set_xlabel('time (s)')
-    ax.set_ylabel('H(t) - H(0) / H(0) [%]')
-    ax.set_title('Model Hamiltonian relative drift')
+    ax.set_ylabel('relative drift of normalized energy [%]')
+    ax.set_title('Normalized Hamiltonian relative drift')
     ax.legend()
 
     plt.tight_layout()

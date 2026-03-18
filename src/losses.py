@@ -4,31 +4,34 @@ import jax.numpy as jnp
 
 def energy_conservation_loss(model: eqx.Module, x: jax.Array, split_size: int = 2) -> jax.Array:
     """
-    Calculates a loss term that penalizes deviations from energy conservation within trajectory chunks.
+    Calculates a loss term that penalizes drift in the model's normalized
+    Hamiltonian within trajectory chunks.
 
-    This loss function leverages the physical principle that for an isolated Hamiltonian system,
-    the total energy (Hamiltonian H = T + V) should remain constant over time. It computes the
-    Hamiltonian for each timestep within a given batch chunk and penalizes the variance of these
-    Hamiltonian values. A low variance implies better energy conservation.
+    Because the model is trained in normalized coordinates, this quantity should
+    be interpreted as a structured normalized energy induced by the learned
+    Lagrangian, rather than as the exact physical Hamiltonian in original units.
+    The loss encourages temporal consistency of that learned quantity along each
+    trajectory chunk.
 
     Args:
-        model (eqx.Module): The neural network model, expected to be an instance of LagrangianNN
-                            or a similar model that can provide `film_net`, `compute_cholesky_entries`,
-                            and `compute_potential` methods.
-        x (jax.Array): The input batch of state vectors, typically a 2D array of concatenated
-                       generalized coordinates (q), generalized velocities (q_dot),
-                       and system parameters (p). Shape: (batch_size * temporal_chunk_len, features).
-        split_size (int, optional): The dimensionality of generalized coordinates (q), used for
-                                    splitting the input vector `x`. Defaults to 2 for 2D systems.
+        model (eqx.Module): The neural network model.
+        x (jax.Array): The input batch of state vectors containing generalized
+                       coordinates, generalized velocities, and normalized system
+                       parameters.
+        split_size (int, optional): The dimensionality of generalized coordinates.
+                                    Defaults to 2 for 2D systems.
 
     Returns:
-        jax.Array: A scalar JAX array representing the variance of the Hamiltonian across timesteps
-                   within each chunk. This variance is used as a loss component.
+        jax.Array: Variance of the model's normalized Hamiltonian across the
+                   current flattened batch chunk. In the present training setup
+                   this corresponds to a single trajectory chunk; for
+                   multi-trajectory batches this would need to be made
+                   trajectory-local explicitly.
     """
     batch_q, batch_qt, batch_params = jnp.split(x, [split_size, split_size*2], axis=-1)
     
     def single_H(q: jax.Array, qt: jax.Array, p: jax.Array):
-        """Computes the Hamiltonian (T + V) for a single timestep."""
+        """Computes the model's normalized Hamiltonian for a single timestep."""
         trig_q = jnp.array([jnp.sin(q[0]), jnp.cos(q[0]),
                             jnp.sin(q[1]), jnp.cos(q[1])])
         film_params = model.film_net(p).reshape(model.n_hidden, 2)
@@ -41,7 +44,14 @@ def energy_conservation_loss(model: eqx.Module, x: jax.Array, split_size: int = 
         return T + V
 
     H = jax.vmap(single_H)(batch_q, batch_qt, batch_params)
-    return jnp.var(H)  # should be near zero along a trajectory
+    # NOTE:
+    # This variance is computed over the full flattened batch. In the current
+    # training setup, each batch is a single temporal chunk from one trajectory,
+    # so this matches the intended notion of trajectory-local energy
+    # consistency. If batching is later extended to multiple trajectories or
+    # parameter settings at once, this should be updated to compute the variance
+    # per trajectory chunk and then average across chunks.
+    return jnp.var(H)  # should stay approximately constant along a trajectory chunk
 
 def kinetic_loss(model, x, norm_stats, split_size=2):
     batch_q, batch_qt, batch_params = jnp.split(x, [split_size, split_size*2], axis=-1)
