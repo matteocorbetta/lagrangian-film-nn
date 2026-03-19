@@ -1,0 +1,28 @@
+site_name: Lagrangian FiLM NN
+repo_url: https://github.com/matteocorbetta/lagrangian-film-nn
+
+theme:
+  name: material
+
+markdown_extensions:
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.superfences
+
+extra_javascript:
+  - https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [src]
+          options:
+            docstring_style: google
+nav:
+  - Home: index.md
+  - Background: background.md
+  - How The Model Works: how-the-model-works.md
+  - Results: results.md
+  - API: api.md

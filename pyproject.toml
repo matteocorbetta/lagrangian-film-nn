@@ -1,5 +1,5 @@
 [project]
-name = "jax-practice"
+name = "lagrangian-film-nn"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
@@ -9,6 +9,9 @@ dependencies = [
     "h5py>=3.16.0",
     "jax>=0.9.1",
     "matplotlib>=3.10.8",
+    "mkdocs>=1.6.1",
+    "mkdocs-material>=9.7.5",
+    "mkdocstrings[python]>=1.0.3",
     "numpy>=2.4.2",
     "optax>=0.2.7",
 ]
