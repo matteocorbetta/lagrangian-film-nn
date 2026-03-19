@@ -71,3 +71,5 @@ results/sample_viz/
 !results/sample_viz/ood_pendulum_phase_1.gif
 !results/sample_viz/ood_pendulum_phase_2.gif
 !results/sample_viz/ood_pendulum_phase_3.gif
+
+!data/doublependulum/dp_trajectory_samples.h5
