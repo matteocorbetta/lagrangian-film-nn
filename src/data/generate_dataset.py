@@ -8,7 +8,7 @@ def initialize_system(sample: int, sys_properties: dict, system: str = 'doublepe
     
     if system == 'doublependulum':
         masses, lengths = sys_properties['mass'][sample], sys_properties['length'][sample]
-        dp = DoublePendulum(m1=masses[0], m2=masses[1], l1=lengths[0], l2=lengths[1])
+        dp = DoublePendulum(m1=float(masses[0]), m2=float(masses[1]), l1=float(lengths[0]), l2=float(lengths[1]))
         integration_fun = dp.analytical_state_transition
         return integration_fun
     else:
@@ -24,10 +24,10 @@ if __name__ == '__main__':
     # Define simulation variables:
     # ==========================
     system    = 'doublependulum'
-    save_filename = 'dp_trajectories.h5'
+    save_filename = 'dp_trajectories_samples.h5'
 
     data_type = np.float64
-    n_samples = 2000
+    n_samples = 50
     t_span = [0, 20]    # time span
     n_sim_steps = 200
 
@@ -42,7 +42,7 @@ if __name__ == '__main__':
         j = 0
         while len(initial_conditions) < n_samples:
             ic = angular_state_initial_conditions(1, data_type=data_type)
-            dp = DoublePendulum()   # Initialize double pendulum
+            # dp = DoublePendulum()   # Initialize double pendulum
             # if dp.is_low_energy(q=ic[0][:2], q_dot=ic[0][2:], m1=parameters['mass'][j, 0], m2=parameters['mass'][j, 1], l1=parameters['length'][j, 0], l2=parameters['length'][j, 1]):
             initial_conditions.append(ic)
             j += 1
