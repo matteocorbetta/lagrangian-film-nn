@@ -64,7 +64,7 @@ $$M(\boldsymbol{q}) = \begin{bmatrix}
 
 Velocities are used to compute the kinetic term in canonical form:
 
-$$T = 0.5 \dot{\boldsymbol{q}}^{\top} \, M(\boldsymbol{q}) \, \dot{\boldsymbol{q}}$$
+$$T = \frac{1}{2}\, \dot{\boldsymbol{q}}^{\top} \, M(\boldsymbol{q}) \, \dot{\boldsymbol{q}}$$
 
 ### Why This Matters
 

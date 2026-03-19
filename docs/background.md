@@ -37,9 +37,7 @@ _Note_: with an abuse of notation, we define the system state vector composed of
 ## Why Use A Lagrangian Network
 
 Instead of asking a network to map
-
-$$(\boldsymbol{q}, \boldsymbol{\theta}) \rightarrow \ddot{q}$$
- 
+$(\boldsymbol{q}, \boldsymbol{\theta}) \rightarrow \ddot{q}$
 directly, the model learns a scalar mechanics object and derives accelerations from it. That gives the architecture more structure and makes it easier to inject mechanical priors into the network design.
 
 ## What I Took From Prior Work
@@ -69,12 +67,13 @@ For the implementation details, go to [How The Model Works](how-the-model-works.
 
 Interesting Reads:
 
-- Deep Lagrangian Networks (Lutter et al., ICLR 2019): <https://arxiv.org/abs/1907.04490>. Reference code: <https://github.com/milutter/deep_lagrangian_networks>
-- Lagrangian Neural Networks (Cranmer et al., 2020): <https://arxiv.org/abs/2003.04630>
+- [Deep Lagrangian Networks (Lutter et al., ICLR 2019)](https://arxiv.org/abs/1907.04490). [Code](https://github.com/milutter/deep_lagrangian_networks)
+- [Lagrangian Neural Networks (Cranmer et al., 2020)](https://arxiv.org/abs/2003.04630)
 
-More Advanced Implementaions:
-- Context-Aware DeLaN / CaDeLaC (Schulze et al., 2025): <https://arxiv.org/abs/2506.15249>
-- Floating-Base DeLaN / FeLaN (Schulze et al., 2025): <https://arxiv.org/abs/2510.17270>
+More Advanced Implementaions: 
+
+- [Context-Aware DeLaN / CaDeLaC (Schulze et al., 2025)](https://arxiv.org/abs/2506.15249)
+- [Floating-Base DeLaN / FeLaN (Schulze et al., 2025)](https://arxiv.org/abs/2510.17270)
 
 
 

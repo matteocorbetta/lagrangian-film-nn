@@ -25,22 +25,21 @@ These are examples of rollout prediction from the test set; the parameters of th
 ### Energy Tests
 The energy loss (which should be 0 in perfect predictions) remains at or below 1% for most if not all the cases. Please note that the vertical axis is already scaled as a percentage value. These refers to the same tests above in 'Rollout Predictions'.
 
-`../results/rollouts/model_T512_20260317_133032_energy_test_0.png`
-`../results/rollouts/model_T512_20260317_133032_energy_test_2.png`
-`../results/rollouts/model_T512_20260317_133032_energy_test_8.png`
+![Energy drift test 0](assets/results/model_T512_20260317_133032_energy_test_0.png)
+![Energy drift test 3](assets/results/model_T512_20260317_133032_energy_test_3.png)
+![Energy drift test 8](assets/results/model_T512_20260317_133032_energy_test_8.png)
 
 The potential and kinetic energy representation that the model predicts are ok, but you can see how the kinetic energy predictions starts being qualitatively different from the truth when approaching the edges, because of lack of training data in the region.
 
-`../results/kinpot_decomposition/model_T512_20260317_133032_kpd_case_0_qd1.png`
-
-`../results/kinpot_decomposition/model_T512_20260317_133032_kpd_case_1_qd1.png`
+![Potential and Kinetic Energy Decomposition 0](assets/results/model_T512_20260317_133032_kpd_case_0_qd1.png)
+![Potential and Kinetic Energy Decomposition 1](assets/results/model_T512_20260317_133032_kpd_case_1_qd1.png)
 
 ### Out of Distribution Predictions
 The tests included some parameter and initial condition pairs that are outside of the ranges of values used in training. That means positions, velocities, masses and lengths that were outside the ranges seen in training.
 
-`../results/ood_tests/model_T512_20260317_133032_ood_0.png`
-`../results/ood_tests/model_T512_20260317_133032_ood_1.png`
-`../results/ood_tests/model_T512_20260317_133032_ood_2.png`
+![Out of distribution test 0](assets/results/model_T512_20260317_133032_ood_0.png)
+![Out of distribution test 1](assets/results/model_T512_20260317_133032_ood_1.png)
+![Out of distribution test 2](assets/results/model_T512_20260317_133032_ood_2.png)
 
 ## Failures
 
@@ -55,11 +54,8 @@ That history is important because it explains why the current architecture is sh
 ### Out of Distribution Failures
 When the parameters and/or initial conditions fall too far from the training distribution, the error starts accumulating and because of the high-nonlinearity, results drastically diverge. In this case below, the second blob of the ground truth falls short of a full swing at the very beginning, while the model predicts the full rotation and from there, the trajectories become completely different. 
 
-`../results/ood_tests/model_T512_20260317_133032_ood_3.png`
-
-`../results/sample_viz/ood_comparison_3.gif`
-
-
+![Out of distribution test 3](assets/results/model_T512_20260317_133032_ood_3.png)
+![Simulation](assets/results/ood_comparison_3.gif)
 
 ## Current Limitations
 
