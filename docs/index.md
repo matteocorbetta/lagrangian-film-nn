@@ -1,7 +1,8 @@
 # Lagrangian FiLM NN
 
-This repo is a compact mechanics-meets-ML project: learn the dynamics of a double pendulum, but not just for one fixed pair of masses and lenghts.
-The goal is to train a single structured model that can handle a family of pendula with different masses and rod lengths.
+![Compare to Ground Truth](assets/results/indist_comparison_0.gif)
+
+This repo is a compact mechanics-meets-ML project: learn the dynamics of a double pendulum, but not just for one fixed setup. The goal is to train a single structured model that can handle a family of pendula with different masses and rod lengths.
 
 The starting point is the main Lagrangian-network idea from [Cranmer et al., Lagrangian Neural Network 2020](https://arxiv.org/pdf/2003.04630), 
 plus a more structured kinetic-energy design in the spirit of [Lutter et al. Deep Lagrangian Networks: Using Physics as Model Prior for Deep Learning](https://arxiv.org/pdf/1907.04490). 

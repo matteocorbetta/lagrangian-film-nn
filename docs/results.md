@@ -17,11 +17,6 @@ Example results:
 ### Rollout Predictions
 These are examples of rollout prediction from the test set; the parameters of the pendula (blob masses and rod lengths) were not seen during training.
 
-`../results/rollouts/model_T512_20260317_133032_energy_test_0.png`
-`../results/rollouts/model_T512_20260317_133032_energy_test_2.png`
-`../results/rollouts/model_T512_20260317_133032_energy_test_8.png`
-
-
 ### Energy Tests
 The energy loss (which should be 0 in perfect predictions) remains at or below 1% for most if not all the cases. Please note that the vertical axis is already scaled as a percentage value. These refers to the same tests above in 'Rollout Predictions'.
 
