@@ -1,57 +1,50 @@
-# Lagrangian-FiLM NN
+# Lagrangian FiLM NN
 
-This repository studies double-pendulum dynamics with a FiLM-conditioned Lagrangian neural network implemented in JAX and Equinox. The model learns a structured Lagrangian from trajectories and physical parameters, then derives accelerations through automatic differentiation of the learned mechanics model.
+This repo is a compact mechanics-meets-ML project: learn the dynamics of a double pendulum, but not just for one fixed setup. The goal is to train a single structured model that can handle a family of pendula with different masses and rod lengths.
 
-## What This Project Does
+The starting point is the main Lagrangian-network idea from [Cranmer et al., Lagrangian Neural Network 2020](https://arxiv.org/pdf/2003.04630), plus a more structured kinetic-energy design in the spirit of [Lutter et al. Deep Lagrangian Networks: Using Physics as Model Prior for Deep Learning](https://arxiv.org/pdf/1907.04490). 
 
-The core model takes generalized coordinates, generalized velocities, and physical parameters as input:
+On top of that, this project adds FiLM conditioning on the kinetic branch so the model can adapt across a family of double pendula instead of learning just one.
+It is not a polished package and it is not pretending to be a paper. It is a fun little project presented in a way that stays readable: enough theory to explain the idea, enough implementation detail to rebuild it, and enough honesty about the rough edges.
 
-- State: `[q1, q2, w1, w2]`
-- Augmented model input: `[q1, q2, w1, w2, m1, m2, l1, l2]`
-- Output: generalized accelerations `[q1_tt, q2_tt]`
+## What This Project Is Trying To Do
 
-The current implementation is designed around a double pendulum with variable masses and rod lengths. Training data is generated analytically, the model is trained on normalized accelerations, and evaluation is done with explicit trajectory rollouts and energy diagnostics.
+The core question is simple:
 
-## Current Scope
+Can one neural network learn a Lagrangian-style model of a double pendulum across different physical parameters, then roll out dynamics for systems it did not see during training, including somewhat out-of-distribution parameters?
 
-This codebase currently focuses on one experimental workflow:
+The model in this repo does three main things:
 
-- generating synthetic double-pendulum trajectories,
-- training a FiLM-conditioned Lagrangian network,
-- evaluating held-out and out-of-distribution rollouts,
-- visualizing trajectory and energy behavior.
+- learns a structured Lagrangian in normalized coordinates
+- conditions the kinetic branch on pendulum parameters with FiLM
+- predicts accelerations by differentiating the learned Lagrangian with JAX
 
-The documentation reflects the repository as it exists today. It documents current behavior and limitations rather than presenting the code as a polished general-purpose package.
+The setup is intentionally narrow: one system, one architecture family, one concrete implementation path. That is a feature, not a bug. The repo is meant to be understandable.
 
-## Repository Map
+## What To Read First
 
-- `src/data/`: analytical double-pendulum dynamics, trajectory generation, HDF5 I/O
-- `src/lnn/`: `LagrangianNN` model definition
-- `src/train.py`: training entrypoint and optimization loop
-- `src/inference.py`: rollout generation, energy plots, OOD evaluation
-- `src/simulate.py`: RK4 rollout utilities and rollout-data persistence
-- `results/`: postprocessing, animations, and saved evaluation artifacts
-- `docs/`: MkDocs site content
+- [Background](background.md): the Lagrangian mechanics idea and the Lagrangian-network viewpoint
+- [How The Model Works](how-the-model-works.md): architecture choices, FiLM conditioning, loss design, and training details
+- [Results](results.md): successes, failures, current limitations, and next steps
+- [API](api.md): source modules if you want to inspect the code directly
 
-## Documentation Guide
+## Repo Map
 
-- [Installation](installation.md): environment setup, dependencies, and verification
-- [Theory](theory.md): the modeling assumptions and structured Lagrangian design
-- [Architecture](architecture.md): module map, data flow, shapes, and saved artifacts
-- [Usage](usage.md): end-to-end workflow from dataset generation to evaluation
-- [Examples](examples.md): scenario-based walkthroughs for common tasks
-- [API](api.md): reusable modules and generated reference docs
+- `src/data/`: analytical double-pendulum dynamics, sampling, and dataset generation
+- `src/lnn/`: the `LagrangianNN` model
+- `src/train.py`: training loop and checkpoint saving
+- `src/inference.py`: rollout evaluation, normalized-energy plots, and OOD tests
+- `src/simulate.py`: RK4 rollout utilities
+- `results/`: plotting and animation helpers
+- `project_story.md`: longer raw project narrative that helped seed these docs
 
-## Main Entry Points
+## The Tone Of These Docs
 
-If you are new to the repository, the fastest path is:
+These pages aim for the middle ground:
 
-1. Read [Theory](theory.md) to understand what the model is learning.
-2. Read [Architecture](architecture.md) for the end-to-end pipeline and data contracts.
-3. Use [Usage](usage.md) to run dataset generation, training, inference, and visualization scripts.
+- more grounded than a casual build thread
+- less stiff than package docs
+- technical when the details matter
+- candid when the implementation is still rough
 
-Relevant source files:
-
-- `src/lnn/model.py`
-- `src/train.py`
-- `src/inference.py`
+If you want the short version: this is a fun project with real mechanics inside it.

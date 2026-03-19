@@ -12,8 +12,7 @@ plugins:
             docstring_style: google
 nav:
   - Home: index.md
-  - Installation: installation.md
-  - Theory: theory.md
-  - Architecture: architecture.md
-  - Usage: usage.md
-  - API Reference: api.md
+  - Background: background.md
+  - How The Model Works: how-the-model-works.md
+  - Results: results.md
+  - API: api.md

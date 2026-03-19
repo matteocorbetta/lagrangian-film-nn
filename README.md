@@ -1,16 +1,17 @@
 # Lagrangian-FiLM NN
 
-Parameter-conditioned Lagrangian neural networks for double-pendulum dynamics in `JAX/Equinox`.
+Small fun project on parameter-conditioned Lagrangian neural networks for double-pendulum dynamics in `JAX/Equinox`. 
+Took inspiration from the original paper [Cranmer et al., Lagrangian Neural Network 2020](https://arxiv.org/pdf/2003.04630), but extended the application to a family of double pendula with different masses and rod lengths, instead of a single double pendulum.
 
 This repository learns a structured mechanics model from simulated trajectories of a double pendulum with varying masses and rod lengths. The model combines:
 
-- a learned Lagrangian formulation,
-- a Feature-wise Linear Modulation (FiLM)-conditioned kinetic branch,
+- a learned Lagrangian formulation that satisfies the always positive-definite mass matrix $M(q, \dot{q})$,
+- a Feature-wise Linear Modulation (FiLM)-conditioned kinetic branch that helps generalizing the original model to the family of pendula with different $m$, $l$,
 - a learned potential branch,
 - automatic differentiation of the Euler-Lagrange equations,
 - rollout-based evaluation on held-out and out-of-distribution parameter settings.
 
-The current codebase is experimental and focused on one concrete system: a 2-DoF double pendulum.
+You can learn more on the details on the documentation page.
 
 **Blind test of ground truth vs. model given same initial conditions**:
 ![Held-out comparison](results/sample_viz/indist_comparison_0.gif)
@@ -19,18 +20,13 @@ The current codebase is experimental and focused on one concrete system: a 2-DoF
 
 The core network takes:
 
-- generalized coordinates and velocities: `[q1, q2, w1, w2]`
-- physical parameters: `[m1, m2, l1, l2]`
+- generalized coordinates (angular positions) and velocities $\boldsymbol{q} = [q_1, q_2, \dot{q}_1, \dot{q}_2]^{\top}$ $\rightarrow$ `[q1, q2, w1, w2]`,
+- physical parameters $\boldsymbol{\theta} = [m_1, m_2, l_1, kl_2]^{\top}$ $\rightarrow$ `[m1, m2, l1, l2]`,
 
-and predicts:
-
-- generalized accelerations: `[q1_tt, q2_tt]`
+and predicts the generalized accelerations $\ddot{q} = [\ddot{q}_1, \ddot{q}_2]^{\top}$ $\rightarrow$ `[q1_tt, q2_tt]`.
 
 Internally, it learns a structured Lagrangian
-
-```text
-L(q, qdot, p) = T(q, qdot, p) - V(q, p)
-```
+$$L(\boldsymbol{q}, \dot{\boldsymbol{q}}, \boldsymbol{\theta}) = T(\boldsymbol{q}, \dot{\boldsymbol{q}}, \boldsymbol{\theta}) - V(\boldsymbol{q}, \boldsymbol{\theta})$$
 
 where:
 
@@ -39,7 +35,7 @@ where:
 - the potential branch depends on both configuration and parameters,
 - accelerations are recovered by differentiating the learned Lagrangian rather than directly regressing dynamics with an unconstrained MLP.
 
-## Repository Highlights
+## Core Scripts
 
 - `src/lnn/model.py`: FiLM-conditioned `LagrangianNN`
 - `src/data/doublependulum.py`: analytical double-pendulum dynamics and energy functions
@@ -55,7 +51,7 @@ where:
 The current workflow is:
 
 1. Generate analytical trajectories for double pendulums with sampled masses and lengths.
-2. Build supervised tensors with augmented state `[q1, q2, w1, w2, m1, m2, l1, l2]`.
+2. Build supervised tensors with augmented state vector `[q1, q2, w1, w2, m1, m2, l1, l2]`.
 3. Normalize velocities, parameters, and acceleration targets.
 4. Train `LagrangianNN` with Huber loss plus an energy-conservation regularizer.
 5. Roll out the learned model with RK4.
@@ -72,6 +68,7 @@ The model reproduces the overall phase-space structure reasonably well on in-dis
 ### Out-Of-Distribution Behavior
 
 The repository also includes manual OOD tests over masses and rod lengths outside the training range.
+When masses and lengths are too far from the training distribution, results start differing qualitatively, as seen below. 
 
 ![OOD phase portrait](results/sample_viz/ood_comparison_2.gif)
 
