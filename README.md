@@ -75,7 +75,8 @@ When masses and lengths are too far from the training distribution, results star
 ### Structural Validation
 
 The codebase includes a kinetic/potential decomposition check that compares learned structure against the analytical system over a grid of configurations.
-
+The MLP to estimate the kinetic energy clearly shows some errors at the edges of the variable space, mainly because of the lack samples in that range in the training set. 
+Moreover, the shape of the potential $V$ is approximately right, but the MLP for the potential is not constrained to the physical behavior of having the minimum at (0,0). This is also something that needs to be improved.
 ![Kinetic/potential decomposition](results/kinpot_decomposition/model_T512_20260317_133032_kpd_case_0_qd1.png)
 
 ## Quick Start
