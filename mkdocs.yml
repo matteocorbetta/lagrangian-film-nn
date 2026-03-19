@@ -22,6 +22,7 @@ plugins:
             docstring_style: google
 nav:
   - Home: index.md
+  - Installation: installation.md
   - Background: background.md
   - How The Model Works: how-the-model-works.md
   - Results: results.md

@@ -118,6 +118,30 @@ Build the docs:
 uv run mkdocs serve
 ```
 
+## Docker Smoke Test
+
+The repository also supports a minimal Docker verification path. This is a Linux CPU-only smoke test intended to confirm that the locked environment builds cleanly and that the core JAX stack imports inside a container.
+
+Build the image from the repository root:
+
+```bash
+docker build -t lagrangiannn .
+```
+
+Run the container smoke test:
+
+```bash
+docker run --rm lagrangiannn
+```
+
+The default container command is:
+
+```bash
+uv run python -c "import jax, equinox, optax; print('smoke test ok')"
+```
+
+If you are running this on a Mac, Docker Desktop is still executing a Linux container in a lightweight VM. This verifies Linux-in-Docker behavior, not native macOS execution.
+
 ## Current Limitations
 
 - The implementation is specialized to a 2-DoF double pendulum.
