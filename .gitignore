@@ -68,7 +68,7 @@ results/sample_viz/
 !results/sample_viz/ood_comparison_3.gif
 
 !results/sample_viz/ood_pendulum_phase_0.gif
-!results/sample_viz/ood_pendulum_phase_1.gif
+!results/sample_viz/ood_pendulum_phase_1.gifgit branch --merged | grep -v "\*" | xargs -n 1 git branch -d
 !results/sample_viz/ood_pendulum_phase_2.gif
 !results/sample_viz/ood_pendulum_phase_3.gif
 
