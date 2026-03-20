@@ -76,12 +76,15 @@ The FiLM I applied her is per-layer, and not per-neuron as in the original idea.
 ## Potential Branch
 The potential branch just takes:
 
-- trigonometric angle features
-- normalized physical parameters
+- trigonometric angle features $\boldsymbol{q} = [\sin{q_1}, \cos{q_1}, \sin{q_2}, \cos{q_2}]$
+- normalized physical parameters $\boldsymbol{\theta}$ 
 
-and outputs a scalar normalized potential energy.
+and outputs a scalar normalized potential energy $V$. This is a more 'standard' NN 
 
-That split turned out to be a stable compromise between mechanical structure and training simplicity.
+$$V = f_V(\boldsymbol{q}, \boldsymbol{\theta})$$
+
+and where prior knowledge could likely create additional benefits.
+That split turned out to be a stable compromise between mechanical structure and training simplicity. That being said, this architecture learn the approximately correct potential landscape form up to a constant shift in state variable space. There is no enforcement that the minimum should appear at (0,0), something know by the physics. Additional improvements could go into the direction of forcing $V$ to be _globally_ correct.
 
 ## Why FiLM Is Used Only On The Kinetic Branch
 
@@ -93,7 +96,7 @@ The reasoning is:
 - changing masses and rod lengths changes that inertia structure strongly
 - FiLM is a good way to modulate hidden features without redesigning the whole branch
 
-So the kinetic branch is conditioned through FiLM, while the potential branch stays simpler.
+So the kinetic branch is conditioned through FiLM, while the potential branch stays simpler. 
 
 ## How Accelerations Are Computed
 
@@ -127,6 +130,7 @@ The current setup is intentionally simple:
 - each optimization step samples one contiguous chunk from one trajectory
 
 That last detail matters because the current normalized-energy regularizer is only truly trajectory-local under that batching scheme.
+I tried with trajectory chunks up to 512 point-long. I did not perform ablation studies on performance of training over training (or model) hyper-parameters.
 
 ## Usage
 

@@ -1,9 +1,11 @@
 # Lagrangian-FiLM NN
 
-Read more details about the work [here](https://matteocorbetta.github.io/lagrangian-film-nn/)
+_Read more details about the work [here](https://matteocorbetta.github.io/lagrangian-film-nn/)_
 
 Small fun project on parameter-conditioned Lagrangian neural networks for double-pendulum dynamics in `JAX/Equinox`. 
 Took inspiration from the original paper [Cranmer et al., Lagrangian Neural Network 2020](https://arxiv.org/pdf/2003.04630), but extended the application to a family of double pendula with different masses and rod lengths, instead of a single double pendulum.
+
+**In a Nutshell**:
 
 This repository learns a structured mechanics model from simulated trajectories of a double pendulum with varying masses and rod lengths. The model combines:
 
