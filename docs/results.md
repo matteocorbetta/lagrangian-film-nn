@@ -70,20 +70,3 @@ If this project were pushed further, the most useful next steps would probably b
 3. make the energy-conservation regularizer explicitly trajectory-local for more flexible batching
 4. expand training to larger traiing distribution parameters and initial conditions
 5. expand evaluation beyond a few held-out and manual OOD examples
-6. keep tightening the docs as the repo grows
-
-## How To Read This Repo
-
-This repo is best read as:
-
-- a focused implementation
-- a technically grounded project
-- a build that got better by debugging real mistakes
-
-It is not best read as:
-
-- a general mechanics framework
-- a benchmark-heavy paper claim
-- a final solution to Lagrangian learning
-
-That narrower framing is what makes the project feel solid rather than overclaimed.
