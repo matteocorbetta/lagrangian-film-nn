@@ -20,6 +20,16 @@ where:
 - `V` is a normalized potential term
 - accelerations are recovered by differentiating `L`
 
+### Computation Sequence
+
+1. Compute Lagrangian Functional:
+    1. Use kinetic branch + FiLM to compute $T(\boldsymbol{q}, \dot(\boldsymbol{q}}, \boldsymbol{\theta})$
+        1. Take $\boldsymbol{q}, \boldsymbol{\theta}$ and compute Cholesky entries to build the normalized mass matrix $M$
+        2. Take the normalized mass matrix $M$ and $\dot(\boldsymbol{q}}$ to compute $T$ 
+    2. Use potential branch to compute $V(\boldsymbol{q}, \boldsymbol{\theta})$
+2. Use `jax.grad` and `jax.jacobian` functionalities to compute partial and time derivatives of Lagrangian $L$
+4. Solve for acceleration vector $\ddot{\boldsymbol{q}}$
+
 ## Input Transformation
 
 ### Trigonometric Angle Features
@@ -118,6 +128,8 @@ The default training loss combines:
 The first term is the direct supervised objective (error on the accelerations).
 
 The second term penalizes drift in the model's normalized Hamiltonian over a trajectory chunk. One nice thing about this regularizer is that it is generic: it uses the model's own structured energy decomposition rather than analytical accelerations in the loss itself.
+The implementation uses the variance of the normalized Hamiltonian calculated over the trajectory chunk as loss value. 
+In this particular application a perfect balance between acceleration loss and normalized energy conservation loss worked well. That means I didn't have to scale the latter with any factor (e.g., $\lambda=1$) to make the two values comparable.
 
 ## Training Notes
 
