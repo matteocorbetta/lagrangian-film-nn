@@ -9,10 +9,10 @@ Took inspiration from the original paper [Cranmer et al., Lagrangian Neural Netw
 
 This repository learns a structured mechanics model from simulated trajectories of a double pendulum with varying masses and rod lengths. The model combines:
 
-- a learned Lagrangian formulation that satisfies the always positive-definite mass matrix $M(q, \dot{q})$,
-- a Feature-wise Linear Modulation (FiLM)-conditioned kinetic branch that helps generalizing the original model to the family of pendula with different $m$, $l$,
-- a learned potential branch,
-- automatic differentiation of the Euler-Lagrange equations,
+- a learned normalized kinetic energy that satisfies the always positive-definite mass matrix $M(q)$,
+- a Feature-wise Linear Modulation (FiLM)-conditioned kinetic MLP that helps generalizing the original model to the family of pendula with different $m$, $l$,
+- a learned normalized potential $V$ with its own branch (MLP),
+- automatic differentiation of the Euler-Lagrange equations to obtain accelerations from the Lagrangian $L$,
 - rollout-based evaluation on held-out and out-of-distribution parameter settings.
 
 You can learn more on the details on the documentation page.
