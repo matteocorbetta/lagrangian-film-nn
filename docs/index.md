@@ -36,3 +36,16 @@ one concrete implementation path.
 - `src/inference.py`: rollout evaluation, normalized-energy plots, and OOD tests
 - `src/simulate.py`: RK4 rollout utilities
 - `results/`: plotting and animation helpers
+
+## Citation
+
+If you use this repository in your research or projects, please cite it as:
+```bibtex
+@misc{corbetta2026lagrangianfilmnn,
+  author       = {Corbetta, Matteo},
+  title        = {Lagrangian FiLM NN: A JAX Implementation of a FiLM-Conditioned Lagrangian Neural Network for Double Pendula},
+  year         = {2026},
+  howpublished = {\url{https://github.com/matteocorbetta/lagrangian-film-nn}},
+}
+```
+

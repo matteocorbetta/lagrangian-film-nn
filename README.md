@@ -164,19 +164,20 @@ If you are running this on a Mac, Docker Desktop is still executing a Linux cont
   - Paper: <https://arxiv.org/abs/1907.04490>
   - Code: <https://github.com/milutter/deep_lagrangian_networks>
 
-<!-- ### Energy-Based Control Extension
-
-- DeLaN for energy-based control (Lutter et al., IROS 2019)
-  - Paper: <https://arxiv.org/abs/1907.04489> -->
-
 ### Lagrangian Neural Networks
 
 - Lagrangian Neural Networks (Cranmer et al., 2020)
   - Paper: <https://arxiv.org/abs/2003.04630>
 
-<!-- ### Context-Aware And Floating-Base Variants
+## Citation
 
-- Context-Aware DeLaN / CaDeLaC (Schulze et al., 2025)
-  - Paper: <https://arxiv.org/abs/2506.15249>
-- Floating-Base DeLaN / FeLaN (Schulze et al., 2025)
-  - Paper: <https://arxiv.org/abs/2510.17270> -->
+If you use this repository in your research or projects, please cite it as:
+```bibtex
+@misc{corbetta2026lagrangianfilmnn,
+  author       = {Corbetta, Matteo},
+  title        = {Lagrangian FiLM NN: A JAX Implementation of a FiLM-Conditioned Lagrangian Neural Network for Double Pendula},
+  year         = {2026},
+  howpublished = {\url{https://github.com/matteocorbetta/lagrangian-film-nn}},
+}
+```
+
