@@ -25,7 +25,7 @@ You can learn more on the details on the documentation page.
 The core network takes:
 
 - generalized coordinates (angular positions) and velocities $\boldsymbol{q} = [q_1, q_2, \dot{q}_1, \dot{q}_2]^{\top}$ $\rightarrow$ `[q1, q2, w1, w2]`,
-- physical parameters $\boldsymbol{\theta} = [m_1, m_2, l_1, kl_2]^{\top}$ $\rightarrow$ `[m1, m2, l1, l2]`,
+- physical parameters $\boldsymbol{\theta} = [m_1, m_2, l_1, l_2]^{\top}$ $\rightarrow$ `[m1, m2, l1, l2]`,
 
 and predicts the generalized accelerations $\ddot{q} = [\ddot{q}_1, \ddot{q}_2]^{\top}$ $\rightarrow$ `[q1_tt, q2_tt]`.
 
