@@ -23,9 +23,9 @@ where:
 ### Computation Sequence
 
 1. Compute Lagrangian Functional:
-    1. Use kinetic branch + FiLM to compute $T(\boldsymbol{q}, \dot(\boldsymbol{q}}, \boldsymbol{\theta})$
+    1. Use kinetic branch + FiLM to compute $T(\boldsymbol{q}, \dot(\boldsymbol{q}), \boldsymbol{\theta})$
         1. Take $\boldsymbol{q}, \boldsymbol{\theta}$ and compute Cholesky entries to build the normalized mass matrix $M$
-        2. Take the normalized mass matrix $M$ and $\dot(\boldsymbol{q}}$ to compute $T$ 
+        2. Take the normalized mass matrix $M$ and $\dot(\boldsymbol{q})$ to compute $T$ 
     2. Use potential branch to compute $V(\boldsymbol{q}, \boldsymbol{\theta})$
 2. Use `jax.grad` and `jax.jacobian` functionalities to compute partial and time derivatives of Lagrangian $L$
 4. Solve for acceleration vector $\ddot{\boldsymbol{q}}$
