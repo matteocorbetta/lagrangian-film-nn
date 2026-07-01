@@ -49,7 +49,7 @@ class LagrangianNN(eqx.Module):
 
         Args:
             pos_dim (int): Dimensionality of the generalized coordinates (q).
-            vel_dim (int): Dimensionality of the generalized velocities (q_dot).
+            vel_dim (int): Dimensionality of the generalized velocities (q_t).
             param_dim (int): Dimensionality of the system parameters (p),
                              e.g., masses and lengths.
             hidden_dim (int): Width of the hidden layers in the `lagrangian_net`.
@@ -106,13 +106,13 @@ class LagrangianNN(eqx.Module):
         # model = eqx.tree_at(lambda m: m.film_net.layers[-1].bias, self, identity_bias)
 
     
-    def apply_film(self, h, film_params, net):
+    def apply_film(self, h, film_p, net):
         """
         Runs a network while applying FiLM modulation to each hidden layer.
 
         Args:
             h: Input features for the network.
-            film_params: Per-layer FiLM parameters of shape (n_hidden, 2), storing
+            film_p: Per-layer FiLM parameters of shape (n_hidden, 2), storing
                 [gamma, beta] for each hidden layer.
             net: Network whose hidden activations are modulated.
         """
@@ -120,16 +120,16 @@ class LagrangianNN(eqx.Module):
             # Compute layer transformation
             h = net.layers[i](h)
             h = jax.nn.softplus(h)
-            
+
             # FiLM scaling
-            gamma = film_params[i, 0]
-            beta = film_params[i, 1]
+            gamma = film_p[i, 0]
+            beta = film_p[i, 1]
 
             h = gamma * h + beta
         return h
 
-    def compute_cholesky_entries(self, q: jnp.Array, film_params: jnp.Array) -> jnp.Array:
-        h = self.apply_film(q, film_params, self.kinetic_net)
+    def compute_cholesky_entries(self, q: jnp.Array, film_p: jnp.Array) -> jnp.Array:
+        h = self.apply_film(q, film_p, self.kinetic_net)
         return self.kinetic_net.layers[self.n_hidden](h)
     
     def compute_potential(self, q: jnp.Array, p: jnp.Array) -> jnp.Array:
@@ -149,10 +149,10 @@ class LagrangianNN(eqx.Module):
         
         # Compute FiLM parameters from the normalized system parameters.
         # Reshape to (n_hidden, 2) where each row is [gamma_i, beta_i].
-        film_params = self.film_net(p).reshape(self.n_hidden, 2)
+        film_p = self.film_net(p).reshape(self.n_hidden, 2)
 
         # Compute the normalized kinetic energy.
-        chol_entries = self.compute_cholesky_entries(trig_q, film_params)
+        chol_entries = self.compute_cholesky_entries(trig_q, film_p)
 
         # Build the positive-definite matrix used in the normalized kinetic energy term.
         L = jnp.array([
@@ -217,10 +217,10 @@ if __name__ == '__main__':
 
     # Basic test of __call__ method
     q_test = jnp.array([0.1, 0.2])
-    qt_test = jnp.array([0.0, 0.0])
+    q_t_test = jnp.array([0.0, 0.0])
     p_test = jnp.array([1.0, 1.0, 1.0, 1.0]) # Example parameters
 
-    q_tt_output = model(q_test, qt_test, p_test)
+    q_tt_output = model(q_test, q_t_test, p_test)
     print("\nExample q_tt output shape:", q_tt_output.shape)
     print("Example q_tt output value:", q_tt_output)
 

@@ -26,7 +26,7 @@ You can learn more on the details on the documentation page.
 
 The core network takes:
 
-- generalized coordinates (angular positions) and velocities $\boldsymbol{q} = [q_1, q_2, \dot{q}_1, \dot{q}_2]^{\top}$ $\rightarrow$ `[q1, q2, w1, w2]`,
+- generalized coordinates (angular positions) and velocities $\boldsymbol{q} = [q_1, q_2, \dot{q}_1, \dot{q}_2]^{\top}$ $\rightarrow$ `[q1, q2, q1_t, q2_t]`,
 - physical parameters $\boldsymbol{\theta} = [m_1, m_2, l_1, l_2]^{\top}$ $\rightarrow$ `[m1, m2, l1, l2]`,
 
 and predicts the generalized accelerations $\ddot{q} = [\ddot{q}_1, \ddot{q}_2]^{\top}$ $\rightarrow$ `[q1_tt, q2_tt]`.
@@ -57,7 +57,7 @@ where:
 The current workflow is:
 
 1. Generate analytical trajectories for double pendulums with sampled masses and lengths.
-2. Build supervised tensors with augmented state vector `[q1, q2, w1, w2, m1, m2, l1, l2]`.
+2. Build supervised tensors with augmented state vector `[q1, q2, q1_t, q2_t, m1, m2, l1, l2]`.
 3. Normalize velocities, parameters, and acceleration targets.
 4. Train `LagrangianNN` with Huber loss plus an energy-conservation regularizer.
 5. Roll out the learned model with RK4.

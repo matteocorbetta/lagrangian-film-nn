@@ -50,7 +50,7 @@ Its job is to define the matrix used in the normalized kinetic energy term. Inst
 
 $$C_e = f([\sin(q_1), \cos(q_1), \sin(q_2), \cos(q_2)], \boldsymbol{\theta})$$
 
-where: $C_e$ refers to 'Choleksy-entries' and $f(\cdot)$ is the FiLM-parameterized kinertic network. FiLM parameterization is applied by looping over an MLP layer and applying the FiLM parameters $\alpha,\,\beta$ to each hidden layer output:
+where: $C_e$ refers to 'Choleksy-entries' and $f(\cdot)$ is the FiLM-parameterized kinertic network. FiLM parameterization is applied by looping over an MLP layer and applying the FiLM parameters $\gamma,\,\beta$ to each hidden layer output:
 
 ```python
 for i in range(self.n_hidden):
@@ -59,8 +59,8 @@ for i in range(self.n_hidden):
     h = jax.nn.softplus(h)
     
     # FiLM scaling
-    gamma = film_params[i, 0]
-    beta = film_params[i, 1]
+    gamma = film_p[i, 0]
+    beta = film_p[i, 1]
 
     h = gamma * h + beta
 ```
