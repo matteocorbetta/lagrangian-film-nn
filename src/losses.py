@@ -28,22 +28,22 @@ def energy_conservation_loss(model: eqx.Module, x: jax.Array, split_size: int = 
                    multi-trajectory batches this would need to be made
                    trajectory-local explicitly.
     """
-    batch_q, batch_qt, batch_params = jnp.split(x, [split_size, split_size*2], axis=-1)
+    batch_q, batch_q_t, batch_p = jnp.split(x, [split_size, split_size*2], axis=-1)
     
-    def single_H(q: jax.Array, qt: jax.Array, p: jax.Array):
+    def single_H(q: jax.Array, q_t: jax.Array, p: jax.Array):
         """Computes the model's normalized Hamiltonian for a single timestep."""
         trig_q = jnp.array([jnp.sin(q[0]), jnp.cos(q[0]),
                             jnp.sin(q[1]), jnp.cos(q[1])])
-        film_params = model.film_net(p).reshape(model.n_hidden, 2)
-        chol = model.compute_cholesky_entries(trig_q, film_params)
+        film_p = model.film_net(p).reshape(model.n_hidden, 2)
+        chol = model.compute_cholesky_entries(trig_q, film_p)
         L = jnp.array([[jax.nn.softplus(chol[0]), 0.0],
                         [chol[1], jax.nn.softplus(chol[2])]])
         M = L.T @ L + jnp.eye(2) * 1e-6
-        T = 0.5 * qt @ M @ qt
+        T = 0.5 * q_t @ M @ q_t
         V = model.compute_potential(trig_q, p)
         return T + V
 
-    H = jax.vmap(single_H)(batch_q, batch_qt, batch_params)
+    H = jax.vmap(single_H)(batch_q, batch_q_t, batch_p)
     # NOTE:
     # This variance is computed over the full flattened batch. In the current
     # training setup, each batch is a single temporal chunk from one trajectory,
@@ -54,15 +54,15 @@ def energy_conservation_loss(model: eqx.Module, x: jax.Array, split_size: int = 
     return jnp.var(H)  # should stay approximately constant along a trajectory chunk
 
 def kinetic_loss(model, x, norm_stats, split_size=2):
-    batch_q, batch_qt, batch_params = jnp.split(x, [split_size, split_size*2], axis=-1)
+    batch_q, batch_q_t, batch_p = jnp.split(x, [split_size, split_size*2], axis=-1)
     X_mean, X_std = norm_stats['X_mean'], norm_stats['X_std']
-    batch_p_phys = batch_params * X_std[4:] + X_mean[4:]
+    batch_p_phys = batch_p * X_std[4:] + X_mean[4:]
 
     def model_M(q, p_norm):
         trig_q = jnp.array([jnp.sin(q[0]), jnp.cos(q[0]),
                              jnp.sin(q[1]), jnp.cos(q[1])])
-        film_params = model.film_net(p_norm).reshape(model.n_hidden, 2)
-        h = model.apply_film(trig_q, film_params, model.kinetic_net)
+        film_p = model.film_net(p_norm).reshape(model.n_hidden, 2)
+        h = model.apply_film(trig_q, film_p, model.kinetic_net)
         chol = model.kinetic_net.layers[model.n_hidden](h)
         L = jnp.array([[jax.nn.softplus(chol[0]), 0.0],
                         [chol[1], jax.nn.softplus(chol[2])]])
@@ -76,19 +76,19 @@ def kinetic_loss(model, x, norm_stats, split_size=2):
         M22 = m2 * l2**2
         return jnp.array([[M11, M12], [M12, M22]])
 
-    M_model = jax.vmap(model_M)(batch_q, batch_params)
-    M_gt    = jax.vmap(gt_M)(batch_q, batch_params * X_std[4:] + X_mean[4:])
+    M_model = jax.vmap(model_M)(batch_q, batch_p)
+    M_gt    = jax.vmap(gt_M)(batch_q, batch_p * X_std[4:] + X_mean[4:])
     
     # normalize by gt scale
     M_std = jnp.std(M_gt) + 1e-8
     return jnp.mean(((M_model - M_gt) / M_std)**2)
 
 def potential_loss(model, x, norm_stats, V_mean, V_std, split_size=2):
-    batch_q, batch_qt, batch_params = jnp.split(x, [split_size, split_size*2], axis=-1)
+    batch_q, batch_q_t, batch_p = jnp.split(x, [split_size, split_size*2], axis=-1)
     
     X_mean, X_std = norm_stats['X_mean'], norm_stats['X_std']
     batch_q_phys = batch_q  # angles passthrough
-    batch_p_phys = batch_params * X_std[4:] + X_mean[4:]
+    batch_p_phys = batch_p * X_std[4:] + X_mean[4:]
     
     def model_V(q, p_norm):
         trig_q = jnp.array([jnp.sin(q[0]), jnp.cos(q[0]),
@@ -102,7 +102,7 @@ def potential_loss(model, x, norm_stats, V_mean, V_std, split_size=2):
         y2 = y1 - p_phys[3] * jnp.cos(q_phys[1])
         return (p_phys[0] + p_phys[1]) * 9.806 * y1 + p_phys[1] * 9.806 * y2
     
-    V_model = jax.vmap(model_V)(batch_q, batch_params)
+    V_model = jax.vmap(model_V)(batch_q, batch_p)
     V_gt    = jax.vmap(gt_V)(batch_q_phys, batch_p_phys)
     
     # normalize with global stats, not per-batch

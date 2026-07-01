@@ -26,7 +26,7 @@ def get_project_data_path(sub_path=''):
 
 # Save / Load Files
 # ===================
-def save_list_of_arrays_to_h5(list_of_arrays: List[np.array], system: str = 'doublependulum', filename: str = 'list_of_trajectories.h5') -> None:
+def save_list_of_arrays_to_h5(list_of_arrays: List[np.ndarray], system: str = 'doublependulum', filename: str = 'list_of_trajectories.h5') -> None:
     """Saves a list of 2D NumPy or JAX arrays into a single compressed HDF5 file.
 
     Each array in the list is stored as a separate dataset within an HDF5 group

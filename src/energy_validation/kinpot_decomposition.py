@@ -30,7 +30,7 @@ KPD_RESULTS_DIR.mkdir(parents=True, exist_ok=True) # Ensure it exists
 
 def plot_TV_decomposition(model, norm_stats, params_phys, n_grid=50):
     """
-    Validates the learned T-V decomposition by comparing model V(q) and T(q, q_dot)
+    Validates the learned T-V decomposition by comparing model V(q) and T(q, q_t)
     against analytical values over a grid of configurations.
     
     params_phys: [m1, m2, l1, l2] in physical units
@@ -67,26 +67,26 @@ def plot_TV_decomposition(model, norm_stats, params_phys, n_grid=50):
     V_model_aligned = (V_model - jnp.mean(V_model)) / (jnp.std(V_model) + 1e-8)
     V_gt_aligned    = (V_gt    - jnp.mean(V_gt))    / (jnp.std(V_gt)    + 1e-8)
     
-    # --- Kinetic energy T(q, q_dot) at fixed q_dot ---
-    q_dot_test = jnp.array([1.0, 1.0])  # fixed representative velocity
-    # q_dot_test = jnp.array([0.1, 0.1])
-    # q_dot_test = jnp.array([3., 3.])
-    q_dot_norm = (q_dot_test - X_mean[2:4]) / X_std[2:4]
+    # --- Kinetic energy T(q, q_t) at fixed q_t ---
+    q_t_test = jnp.array([1.0, 1.0])  # fixed representative velocity
+    # q_t_test = jnp.array([0.1, 0.1])
+    # q_t_test = jnp.array([3., 3.])
+    q_t_norm = (q_t_test - X_mean[2:4]) / X_std[2:4]
     
     def model_T(q1, q2):
         q = jnp.array([q1, q2])
         trig_q = jnp.array([jnp.sin(q[0]), jnp.cos(q[0]),
                              jnp.sin(q[1]), jnp.cos(q[1])])
-        film_params = model.film_net(p_norm).reshape(model.n_hidden, 2)
-        chol = model.compute_cholesky_entries(trig_q, film_params)
+        film_p = model.film_net(p_norm).reshape(model.n_hidden, 2)
+        chol = model.compute_cholesky_entries(trig_q, film_p)
         L = jnp.array([[jax.nn.softplus(chol[0]), 0.0],
                         [chol[1],                  jax.nn.softplus(chol[2])]])
         M = L.T @ L + jnp.eye(2) * 1e-6
-        return 0.5 * q_dot_norm @ M @ q_dot_norm
+        return 0.5 * q_t_norm @ M @ q_t_norm
     
     def gt_T(q1, q2):
         q = jnp.array([q1, q2])
-        return dp.kinetic_energy(q, q_dot_test)
+        return dp.kinetic_energy(q, q_t_test)
     
     T_model = jax.vmap(jax.vmap(model_T))(Q1, Q2)
     T_gt    = jax.vmap(jax.vmap(gt_T))(Q1, Q2)
@@ -96,7 +96,7 @@ def plot_TV_decomposition(model, norm_stats, params_phys, n_grid=50):
     
     # --- Plot ---
     fig, axes = plt.subplots(2, 3, figsize=(15, 9))
-    fig.suptitle(f'm1={p_phys[0]:.2f}, m2={p_phys[1]:.2f}, l1={p_phys[2]:.2f}, l2={p_phys[3]:.2f}; q_dot={q_dot_test}')
+    fig.suptitle(f'm1={p_phys[0]:.2f}, m2={p_phys[1]:.2f}, l1={p_phys[2]:.2f}, l2={p_phys[3]:.2f}; q_t={q_t_test}')
     
     vmin_V = min(V_gt_aligned.min(), V_model_aligned.min())
     vmax_V = max(V_gt_aligned.max(), V_model_aligned.max())
@@ -184,9 +184,9 @@ if __name__ == '__main__':
         jnp.array([2.5, 1.5, 1.2, 1.3], dtype=jnp.float64), # OOD example (heavy masses)
     ]
 
-    for i, params_phys in enumerate(test_params_cases):
-        print(f"\nGenerating plots for parameter set {i+1}: {params_phys}")
-        fig = plot_TV_decomposition(model, norm_stats, params_phys)
+    for i, p_phys in enumerate(test_params_cases):
+        print(f"\nGenerating plots for parameter set {i+1}: {p_phys}")
+        fig = plot_TV_decomposition(model, norm_stats, p_phys)
         # Save the plot
         plot_filename = KPD_RESULTS_DIR / f"{model_name}_kpd_case_{i}.png"
         fig.savefig(plot_filename, dpi=300)
