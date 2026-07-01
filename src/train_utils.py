@@ -188,7 +188,7 @@ def build_input_output(datasets: List[jax.Array], params: List[jax.Array], dt: f
         # Keep preprocessing in NumPy here: np.gradient is robust for the offline
         # derivative estimate used to build supervision targets.
         x_np = np.asarray(traj[:, 1:])
-        x_t_np = np.gradient(x_np[:, 2:], dt, axis=0, edge_order=2)
+        x_tt_np = np.gradient(x_np[:, 2:], dt, axis=0, edge_order=2)
         
         # Tile physical parameters to match the trajectory length before converting
         # the assembled arrays to JAX.
@@ -199,7 +199,7 @@ def build_input_output(datasets: List[jax.Array], params: List[jax.Array], dt: f
         x_a_np = np.concatenate([x_np, p_tiled_np], axis=1)
 
         X_np.append(x_a_np)
-        dXdt_np.append(x_t_np)
+        dXdt_np.append(x_tt_np)
     
     # Convert once at the end so downstream training code can stay in JAX.
     X = jnp.asarray(np.stack(X_np))

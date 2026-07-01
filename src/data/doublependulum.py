@@ -138,7 +138,7 @@ class DoublePendulum(eqx.Module):
     @jit
     def analytical_state_transition(self, state, t):
         """
-        1 - a1 * a2 in the denominator goes to zero when t1 - t2 = ±π/2 (cos → 0 kills it) — actually it's cos²(t1-t2) that drives the singularity. 
+        1 - a1 * a2 in the denominator goes to zero when theta1 - theta2 = ±π/2 (cos → 0 kills it) — actually it's cos²(t1-t2) that drives the singularity. 
         """
         theta1, theta2, omega1, omega2 = state
         
