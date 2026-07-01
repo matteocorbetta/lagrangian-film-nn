@@ -1,7 +1,6 @@
 # Generate double pendulum trajectories
 from jax import config
 config.update('jax_enable_x64', True)
-
 import jax
 import jax.numpy as jnp
 from jax import jit
@@ -12,7 +11,8 @@ import equinox as eqx
 # ==========
 GRAVITY = 9.806
 
-
+# Utility functions
+# ==================
 def _make_rng(random_seed: int) -> jax.Array:
     return jax.random.PRNGKey(random_seed)
 
@@ -20,7 +20,7 @@ def _make_rng(random_seed: int) -> jax.Array:
 # =====================
 def angular_state_initial_conditions(n_samples : int, n_pendulums: int = 2, random_seed: int = 123456789, data_type=jnp.float32) -> jax.Array:
     key = _make_rng(random_seed)
-    q_key, qdot_key = jax.random.split(key)
+    q_key, q_t_key = jax.random.split(key)
     q0 = jax.random.uniform(
         q_key,
         shape=(n_samples, n_pendulums),
@@ -28,14 +28,14 @@ def angular_state_initial_conditions(n_samples : int, n_pendulums: int = 2, rand
         maxval=jnp.pi / 2,
         dtype=data_type,
     )
-    q0_dot = jax.random.uniform(
-        qdot_key,
+    q0_t = jax.random.uniform(
+        q_t_key,
         shape=(n_samples, n_pendulums),
         minval=-jnp.pi / 5,
         maxval=jnp.pi / 5,
         dtype=data_type,
     )
-    x0 = jnp.concatenate((q0, q0_dot), axis=1)
+    x0 = jnp.concatenate((q0, q0_t), axis=1)
     return x0
 
 def mass_length_samples(n_samples: int, n_pendulums: int = 2, random_seed: int = 123456789) -> dict:
@@ -66,13 +66,13 @@ class DoublePendulum(eqx.Module):
     """
     Double pendulum code assuming the following state variables:
     
-    x = [t1, t2, w1, w2]
-    t1: rad, angle of pendulum 1 from downward vertical
-    t2: rad, angle of pendulum 2 from downward vertical
-    w1: rad/s, angular velocity of pendulum 1
-    w2: rad/s, angular velocity of pendulum 2
+    x = [theta1, theta2, omega1, omega2]
+    theta1: rad, angle of pendulum 1 from downward vertical
+    theta2: rad, angle of pendulum 2 from downward vertical
+    omega1: rad/s, angular velocity of pendulum 1
+    omega2: rad/s, angular velocity of pendulum 2
 
-    analytical state transition returns the state vector derivative d/dt x: [w1, w2, g1, g2]
+    analytical state transition returns the state vector derivative d/dt x: [omega1, omega2, omegadot1, omegadot2]
     """
 
     m1: float = 1.0
@@ -82,74 +82,75 @@ class DoublePendulum(eqx.Module):
     g: float = GRAVITY
 
     @jit
-    def kinetic_energy(self, q, q_dot):
-        (t1, t2), (w1, w2) = q, q_dot
-        T1 = 0.5 * self.m1 * (self.l1 * w1)**2
-        T2 = 0.5 * self.m2 * ((self.l1 * w1)**2 + (self.l2 * w2)**2 + 2 * self.l1 * self.l2 * w1 * w2 * jnp.cos(t1 - t2))
+    def kinetic_energy(self, q, q_t):
+        (theta1, theta2), (omega1, omega2) = q, q_t
+        T1 = 0.5 * self.m1 * (self.l1 * omega1)**2
+        T2 = 0.5 * self.m2 * ((self.l1 * omega1)**2 + (self.l2 * omega2)**2 + 2 * self.l1 * self.l2 * omega1 * omega2 * jnp.cos(theta1 - theta2))
         T  = T1 + T2
         return T
     
     @jit
     def potential_energy(self, q):
         if len(q) == 2:
-            (t1, t2) = q
+            (theta1, theta2) = q
         else:
-            t1, t2 = q[:, 0], q[:, 1]
-        y1 = - self.l1 * jnp.cos(t1)
-        y2 = y1 - self.l2 * jnp.cos(t2)
+            theta1, theta2 = q[:, 0], q[:, 1]
+        y1 = - self.l1 * jnp.cos(theta1)
+        y2 = y1 - self.l2 * jnp.cos(theta2)
         V = self.m1 * self.g * y1 + self.m2 * self.g * y2
         return V
     
-    def lagrangian_fn(self, q, q_dot):
-        T = self.kinetic_energy(q, q_dot)
+    def lagrangian_fn(self, q, q_t):
+        T = self.kinetic_energy(q, q_t)
         V = self.potential_energy(q)
         return T - V
     
-    def hamiltonian_fn(self, q, q_dot):
-        T = self.kinetic_energy(q, q_dot)
+    def hamiltonian_fn(self, q, q_t):
+        T = self.kinetic_energy(q, q_t)
         V = self.potential_energy(q)
         return T + V
     
     def to_cartesian(self, q: jax.Array):
         """Convert angles to Cartesian coordinates."""
-        q1, q2 = q
-        x1 = self.l1 * jnp.sin(q1)
-        y1 = -self.l1 * jnp.cos(q1)
-        x2 = x1 + self.l2 * jnp.sin(q2)
-        y2 = y1 - self.l2 * jnp.cos(q2)
+        theta1, theta2 = q
+        x1 = self.l1 * jnp.sin(theta1)
+        y1 = -self.l1 * jnp.cos(theta1)
+        x2 = x1 + self.l2 * jnp.sin(theta2)
+        y2 = y1 - self.l2 * jnp.cos(theta2)
         return x1, y1, x2, y2
     
     @staticmethod
-    def is_low_energy(q, q_dot, m1, m2, l1, l2, g=9.81):
-        t1, t2 = q
-        w1, w2 = q_dot
+    def is_low_energy(q, q_t, m1, m2, l1, l2, g=9.81):
+        theta1, theta2 = q
+        omega1, omega2 = q_t
 
         # PE at unstable equilibrium (both up)
         V_max = (m1 + m2) * g * l1 + m2 * g * l2
         
         # Total energy at initial condition
-        T = 0.5 * m1 * (l1*w1)**2 + 0.5 * m2 * ((l1*w1)**2 + (l2*w2)**2 + 2*l1*l2*w1*w2*jnp.cos(t1-t2))
-        V = -(m1 + m2) * g * l1 * jnp.cos(t1) - m2 * g * l2 * jnp.cos(t2)
+        T = 0.5 * m1 * (l1 * omega1)**2 + 0.5 * m2 * ((l1 * omega1)**2 + (l2 * omega2)**2 + \
+                                                      2 * l1 * l2 * omega1 * omega2 * jnp.cos(theta1 - theta2))
+        V = -(m1 + m2) * g * l1 * jnp.cos(theta1) - m2 * g * l2 * jnp.cos(theta2)
         H = T + V
         
         return H < V_max
 
     @jit
-    def analytical_state_transition(self, full_state, t):
+    def analytical_state_transition(self, state, t):
         """
-        1 - a1 * a2 in the denominator goes to zero when t1 - t2 = ±π/2 (cos → 0 kills it) — actually it's cos²(t1-t2) that drives the singularity. 
+        1 - a1 * a2 in the denominator goes to zero when theta1 - theta2 = ±π/2 (cos → 0 kills it) — actually it's cos²(t1-t2) that drives the singularity. 
         """
-        t1, t2, w1, w2 = full_state
+        theta1, theta2, omega1, omega2 = state
         
-        a1 = (self.l2 / self.l1) * (self.m2 / (self.m1 + self.m2)) * jnp.cos(t1 - t2)
-        a2 = (self.l1 / self.l2) * jnp.cos(t1 - t2)
+        a1 = (self.l2 / self.l1) * (self.m2 / (self.m1 + self.m2)) * jnp.cos(theta1 - theta2)
+        a2 = (self.l1 / self.l2) * jnp.cos(theta1 - theta2)
         
-        f1 = -(self.l2 / self.l1) * (self.m2 / (self.m1 + self.m2)) * (w2**2) * jnp.sin(t1 - t2) - (self.g / self.l1) * jnp.sin(t1)
-        f2 = (self.l1 / self.l2) * (w1**2) * jnp.sin(t1 - t2) - (self.g / self.l2) * jnp.sin(t2)
+        f1 = -(self.l2 / self.l1) * (self.m2 / (self.m1 + self.m2)) * (omega2**2) * jnp.sin(theta1 - theta2) - (self.g / self.l1) * jnp.sin(theta1)
+        f2 = (self.l1 / self.l2) * (omega1**2) * jnp.sin(theta1 - theta2) - (self.g / self.l2) * jnp.sin(theta2)
         
-        g1 = (f1 - a1 * f2) / (1 - a1 * a2)
-        g2 = (f2 - a2 * f1) / (1 - a1 * a2)
-        return jnp.stack([w1, w2, g1, g2])
+        omegadot1 = (f1 - a1 * f2) / (1 - a1 * a2)
+        omegadot2 = (f2 - a2 * f1) / (1 - a1 * a2)
+        return jnp.stack([omega1, omega2, omegadot1, omegadot2])
 
 
 

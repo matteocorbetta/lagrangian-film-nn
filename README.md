@@ -5,6 +5,8 @@ _Read more details about the work [here](https://matteocorbetta.github.io/lagran
 Small fun project on parameter-conditioned Lagrangian neural networks for double-pendulum dynamics in `JAX/Equinox`. 
 Took inspiration from the original paper [Cranmer et al., Lagrangian Neural Network 2020](https://arxiv.org/pdf/2003.04630), but extended the application to a family of double pendula with different masses and rod lengths, instead of a single double pendulum.
 
+**Current Work**: fixing variable and parameter name mismatches.
+
 **In a Nutshell**:
 
 This repository learns a structured mechanics model from simulated trajectories of a double pendulum with varying masses and rod lengths. The model combines:
@@ -24,7 +26,7 @@ You can learn more on the details on the documentation page.
 
 The core network takes:
 
-- generalized coordinates (angular positions) and velocities $\boldsymbol{q} = [q_1, q_2, \dot{q}_1, \dot{q}_2]^{\top}$ $\rightarrow$ `[q1, q2, w1, w2]`,
+- generalized coordinates (angular positions) and velocities $\boldsymbol{q} = [q_1, q_2, \dot{q}_1, \dot{q}_2]^{\top}$ $\rightarrow$ `[q1, q2, q1_t, q2_t]`,
 - physical parameters $\boldsymbol{\theta} = [m_1, m_2, l_1, l_2]^{\top}$ $\rightarrow$ `[m1, m2, l1, l2]`,
 
 and predicts the generalized accelerations $\ddot{q} = [\ddot{q}_1, \ddot{q}_2]^{\top}$ $\rightarrow$ `[q1_tt, q2_tt]`.
@@ -55,7 +57,7 @@ where:
 The current workflow is:
 
 1. Generate analytical trajectories for double pendulums with sampled masses and lengths.
-2. Build supervised tensors with augmented state vector `[q1, q2, w1, w2, m1, m2, l1, l2]`.
+2. Build supervised tensors with augmented state vector `[q1, q2, q1_t, q2_t, m1, m2, l1, l2]`.
 3. Normalize velocities, parameters, and acceleration targets.
 4. Train `LagrangianNN` with Huber loss plus an energy-conservation regularizer.
 5. Roll out the learned model with RK4.

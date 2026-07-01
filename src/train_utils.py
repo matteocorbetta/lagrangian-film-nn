@@ -172,7 +172,7 @@ def build_input_output(datasets: List[jax.Array], params: List[jax.Array], dt: f
 
     Args:
         datasets (List[jnp.Array]): List of raw trajectory data, each of shape (time_steps, 5)
-                                    where columns are [time, q1, q2, w1, w2].
+                                    where columns are [time, q1, q2, q1_t, q2_t].
         params (List[jnp.Array]): List of system parameters, each of shape (4,)
                                   [m1, m2, l1, l2].
         dt (float): Time step size, used for numerical differentiation.
@@ -180,7 +180,7 @@ def build_input_output(datasets: List[jax.Array], params: List[jax.Array], dt: f
     Returns:
         Tuple[jax.Array, jax.Array]: A tuple containing:
             - X (jax.Array): Concatenated input states, shape (num_trajectories, time_steps, features).
-                             Features order: [q1, q2, w1, w2, m1, m2, l1, l2].
+                             Features order: [q1, q2, q1_t, q2_t, m1, m2, l1, l2].
             - dXdt (jax.Array): Computed accelerations, shape (num_trajectories, time_steps, 2).
     """
     X_np, dXdt_np = [], []
@@ -188,18 +188,18 @@ def build_input_output(datasets: List[jax.Array], params: List[jax.Array], dt: f
         # Keep preprocessing in NumPy here: np.gradient is robust for the offline
         # derivative estimate used to build supervision targets.
         x_np = np.asarray(traj[:, 1:])
-        xdot_np = np.gradient(x_np[:, 2:], dt, axis=0, edge_order=2)
+        x_tt_np = np.gradient(x_np[:, 2:], dt, axis=0, edge_order=2)
         
         # Tile physical parameters to match the trajectory length before converting
         # the assembled arrays to JAX.
         p_np = np.asarray(params[i])
         p_tiled_np = np.tile(p_np, (x_np.shape[0], 1))
         
-        # Augmented state vector: [q1, q2, w1, w2, m1, m2, l1, l2]
-        x_aug_np = np.concatenate([x_np, p_tiled_np], axis=1)
+        # Augmented state vector: [q1, q2, q1_t, q2_t, m1, m2, l1, l2]
+        x_a_np = np.concatenate([x_np, p_tiled_np], axis=1)
 
-        X_np.append(x_aug_np)
-        dXdt_np.append(xdot_np)
+        X_np.append(x_a_np)
+        dXdt_np.append(x_tt_np)
     
     # Convert once at the end so downstream training code can stay in JAX.
     X = jnp.asarray(np.stack(X_np))

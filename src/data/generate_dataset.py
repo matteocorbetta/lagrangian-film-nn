@@ -23,7 +23,7 @@ if __name__ == '__main__':
 
     # Define simulation variables:
     # ==========================
-    system    = 'doublependulum'
+    system        = 'doublependulum'
     save_filename = 'dp_trajectories_samples.h5'
 
     data_type = np.float64
@@ -43,7 +43,7 @@ if __name__ == '__main__':
         while len(initial_conditions) < n_samples:
             ic = angular_state_initial_conditions(1, data_type=data_type)
             # dp = DoublePendulum()   # Initialize double pendulum
-            # if dp.is_low_energy(q=ic[0][:2], q_dot=ic[0][2:], m1=parameters['mass'][j, 0], m2=parameters['mass'][j, 1], l1=parameters['length'][j, 0], l2=parameters['length'][j, 1]):
+            # if dp.is_low_energy(q=ic[0][:2], q_t=ic[0][2:], m1=parameters['mass'][j, 0], m2=parameters['mass'][j, 1], l1=parameters['length'][j, 0], l2=parameters['length'][j, 1]):
             initial_conditions.append(ic)
             j += 1
 

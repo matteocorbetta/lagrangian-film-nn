@@ -5,7 +5,7 @@
 The repository models a parameterized double pendulum. Each trajectory is defined by:
 
 - generalized coordinates, that is the angular positions of the pendula $\boldsymbol{q} = [q_1, q_2]^{\top}$ $\rightarrow$ `q = [q1, q2]`,
-- generalized velocities, that is the angular velocities of the pendula $\dot{\boldsymbol{q}} = [\dot{q}_1, \dot{q}_2]^{\top}$ $\rightarrow$ `qdot = [w1, w2]`,
+- generalized velocities, that is the angular velocities of the pendula $\dot{\boldsymbol{q}} = [\dot{q}_1, \dot{q}_2]^{\top}$ $\rightarrow$ `q_t = [q1_t, q2_t]`,
 - physical parameters $\boldsymbol{\theta} = [m_1, m_2, l_1, l_2]^{\top}$ $\rightarrow$ `p = [m1, m2, l1, l2]`.
 
 The learning objective is to predict generalized accelerations $\ddot{\boldsymbol{q}} = [\ddot{q}_1, \ddot{q}_2]^{\top}$ from state and parameters while preserving as much mechanical structure as possible.
@@ -13,7 +13,7 @@ The learning objective is to predict generalized accelerations $\ddot{\boldsymbo
 In the training pipeline, each input timestep is represented as:
 
 ```text
-[q1, q2, w1, w2, m1, m2, l1, l2]
+[q1, q2, q1_t, q2_t, m1, m2, l1, l2]
 ```
 
 and each target timestep is:

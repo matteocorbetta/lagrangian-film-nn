@@ -7,25 +7,25 @@ from jax import lax
 import equinox as eqx
 
 
-def rk4_step(full_state, dt, model, norm_stats):
+def rk4_step(aug_state, dt, model, norm_stats):
     
     X_mean, X_std = norm_stats['X_mean'], norm_stats['X_std']
     dXdt_mean, dXdt_std = norm_stats['dXdt_mean'], norm_stats['dXdt_std']
 
     def f(state):
         state_norm = (state - X_mean[:4]) / X_std[:4]
-        p_norm = full_state[4:]
-        qtt_norm = model(state_norm[:2], state_norm[2:], p_norm)
-        qtt_phy = qtt_norm * dXdt_std + dXdt_mean
-        return jnp.concatenate([state[2:], qtt_phy])
+        p_norm = aug_state[4:]
+        q_tt_norm = model(state_norm[:2], state_norm[2:], p_norm)
+        q_tt_phy = q_tt_norm * dXdt_std + dXdt_mean
+        return jnp.concatenate([state[2:], q_tt_phy])
     
-    state = full_state[:4]
+    state = aug_state[:4]
     k1 = f(state)
     k2 = f(state + 0.5 * dt * k1)
     k3 = f(state + 0.5 * dt * k2)
     k4 = f(state + dt * k3)
     new_state = state + (dt/6.0) * (k1 + 2*k2 + 2*k3 + k4)
-    return jnp.concatenate([new_state, full_state[4:]])
+    return jnp.concatenate([new_state, aug_state[4:]])
 
 # --- Rollout Function (JITted with lax.scan) ---
 def make_rollout(n_steps, norm_stats):
@@ -35,10 +35,10 @@ def make_rollout(n_steps, norm_stats):
         Simulates the system's trajectory using the provided model and RK4 integration.
 
         Args:
-            model (callable): A function that computes the second derivatives (qtt)
-                            given (q, qt, p).
+            model (callable): A function that computes the second derivatives (q_tt)
+                            given (q, q_t, p).
             state0 (jnp.ndarray): The initial full state vector
-                                [q1, q2, w1, w2, m1, m2, l1, l2] in unnormalized units.
+                                [q1, q2, q1_t, q2_t, m1, m2, l1, l2] in unnormalized units.
             dt (float): The time step size for integration.
             n_steps (int): The number of integration steps to perform.
 

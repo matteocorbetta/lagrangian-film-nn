@@ -47,15 +47,15 @@ def test_ood(model, norm_stats, x0, dt, n_steps, params_ood, fname_prefix: str, 
     times = jnp.arange(n_steps) * dt
     gt_states = odeint(dp.analytical_state_transition, x0, t=times, rtol=1e-10, atol=1e-10)
 
-    # normalize params for model
+    # normalize params p for model
     X_mean, X_std = norm_stats['X_mean'], norm_stats['X_std']
     p_phys = jnp.array([m1, m2, l1, l2])
     p_norm = (p_phys - X_mean[4:]) / X_std[4:]
-    state0_full = jnp.concatenate([x0, p_norm])
+    qa_init = jnp.concatenate([x0, p_norm])
 
     # rollout
     rollout_fn = make_rollout(n_steps=n_steps, norm_stats=norm_stats)
-    states_ = rollout_fn(model, state0_full, dt=dt)
+    states_ = rollout_fn(model, qa_init, dt=dt)
 
     # Save OOD results data
     save_rollout_data(
@@ -83,35 +83,35 @@ def test_ood(model, norm_stats, x0, dt, n_steps, params_ood, fname_prefix: str, 
     return fig
 
 
-def plot_energy(model, state0_full, dt, n_steps, norm_stats):
+def plot_energy(model, qa_init, dt, n_steps, norm_stats):
     """
     Roll out the model and plot the drift of its normalized Hamiltonian over
     time.
     
-    state0_full: [q1, q2, w1, w2, p_norm...] where the state is physical and the
+    qa_init: [q1, q2, q1_t, q2_t, p_norm...] where the state is physical and the
     parameters are normalized for the model.
     
     """
     rollout_fn = make_rollout(n_steps=n_steps, norm_stats=norm_stats)
-    states_ = rollout_fn(model, state0_full, dt=dt)  # [n_steps, 8], physical state
+    states_ = rollout_fn(model, qa_init, dt=dt)  # [n_steps, 8], physical state
 
     X_mean = norm_stats['X_mean']
     X_std  = norm_stats['X_std']
-    p_norm = state0_full[4:]
+    p_norm = qa_init[4:]
 
     def compute_H(state_phys):
         state_norm = (state_phys - X_mean[:4]) / X_std[:4]
         q_norm  = state_norm[:2]
-        qt_norm = state_norm[2:]
-        trig_q  = jnp.array([jnp.sin(q_norm[0]), jnp.cos(q_norm[0]),
+        q_t_norm = state_norm[2:]
+        q_trig  = jnp.array([jnp.sin(q_norm[0]), jnp.cos(q_norm[0]),
                               jnp.sin(q_norm[1]), jnp.cos(q_norm[1])])
-        film_params = model.film_net(p_norm).reshape(model.n_hidden, 2)
-        chol = model.compute_cholesky_entries(trig_q, film_params)
+        film_p = model.film_net(p_norm).reshape(model.n_hidden, 2)
+        chol = model.compute_cholesky_entries(q_trig, film_p)
         L = jnp.array([[jax.nn.softplus(chol[0]), 0.0],
                         [chol[1],                  jax.nn.softplus(chol[2])]])
         M = L.T @ L + jnp.eye(2) * 1e-6
-        T = 0.5 * qt_norm @ M @ qt_norm
-        V = model.compute_potential(trig_q, p_norm)
+        T = 0.5 * q_t_norm @ M @ q_t_norm
+        V = model.compute_potential(q_trig, p_norm)
         return T + V
 
     # Model normalized Hamiltonian along rollout
@@ -136,10 +136,10 @@ def plot_energy(model, state0_full, dt, n_steps, norm_stats):
 def gen_multiple_plots(X, X_norm, norm_stats, n_steps: int = 3000, num_plots: int = 10, fname_prefix: str = 'rollout'):
     rollout_fn = make_rollout(n_steps=n_steps, norm_stats=norm_stats)
     for traj_num in range(num_plots):
-        state0 = X[traj_num, 0, :4]
+        q_init = X[traj_num, 0, :4]
         p_norm = X_norm[traj_num, 0, 4:]
-        state0_full = jnp.concatenate([state0, p_norm])
-        states_ = rollout_fn(model, state0_full, dt=dt)
+        qa_init = jnp.concatenate([q_init, p_norm])
+        states_ = rollout_fn(model, qa_init, dt=dt)
 
         # Save rollout data
         p_phys = X[traj_num, 0, 4:]
@@ -147,8 +147,8 @@ def gen_multiple_plots(X, X_norm, norm_stats, n_steps: int = 3000, num_plots: in
             save_dir=ROLLOUTS_DIR,
             filename_prefix=fname_prefix,
             times=time_v[:n_steps], # Only save times relevant to n_steps
-            gt_states=X[traj_num, :n_steps, :4], # Ground truth q, qt for n_steps
-            sim_states=states_[:, :4], # Simulated q, qt for n_steps
+            gt_states=X[traj_num, :n_steps, :4], # Ground truth q, q_t for n_steps
+            sim_states=states_[:, :4], # Simulated q, q_t for n_steps
             params_phys=p_phys, # Physical parameters of the system
             case_label=f"traj_{traj_num}"
         )
@@ -161,7 +161,7 @@ def gen_multiple_plots(X, X_norm, norm_stats, n_steps: int = 3000, num_plots: in
 
 
 def plot_rollout(X, states_, time_v, n_steps):
-    state_names = [r'$q_1$', r'$q_2$', r'$qdot_1$', r'$qdot_2$']
+    state_names = [r'$q_1$', r'$q_2$', r'$q_{1,t}$', r'$q_{2,t}$']
     fig, axs = plt.subplots(2,2, figsize=(12,10))
     axs = axs.reshape((-1,))
     fig.suptitle(f'Pendulum properties:\nmasses=({round(X[0, 4],2)},{round(X[0, 5],2)}), rods=({round(X[0, 6],2)}, {round(X[0, 7],2)})')
@@ -192,14 +192,14 @@ if __name__ == '__main__':
 
     # LOAD DATA
     # =======
-    # Dataset is a list of arrays of shape [T, 5] = (time, q1, q2, qdot1, qdot2)
-    datasets, params = load_list_of_arrays_from_h5(system='doublependulum', filename='dp_trajectories.h5')
+    # Dataset is a list of arrays of shape [T, 5] = (time, q1, q2, q1_t, q2_t)
+    datasets, p = load_list_of_arrays_from_h5(system='doublependulum', filename='dp_trajectories.h5')
     dt     = datasets[0][1, 0] - datasets[0][0, 0]
     time_v = datasets[0][:, 0]
     
     # Build dataset for training: from x = [q, dqdt], build dx/dt numerically
     # ========================================================================
-    X, dXdt = build_input_output(datasets=datasets, params=params, dt=dt)
+    X, dXdt = build_input_output(datasets=datasets, params=p, dt=dt)
     
     # Build train/test sets
     # ==========================
@@ -210,12 +210,12 @@ if __name__ == '__main__':
 
     # Normalize data
     # -----------------
-    # X columns: [q1, q2, w1, w2, m1, m2, l1, l2]
+    # X columns: [q1, q2, q1_t, q2_t, m1, m2, l1, l2]
     # q1, q2 are raw angles in radians — trig transform handles them, don't normalize
-    # w1, w2, m1, m2, l1, l2 — normalize by mean and std
+    # q1_t, q2_t, m1, m2, l1, l2 — normalize by mean and std
     Xtrain_norm, Xval_norm, Xtest_norm, \
         dXdt_train_norm, dXdt_val_norm, dXdt_test_norm, \
-            norm_stats = normalize_data(Xtrain, Xval, Xtest, dXdt_train, dXdt_val, dXdt_test, len(params), normalize=True)
+            norm_stats = normalize_data(Xtrain, Xval, Xtest, dXdt_train, dXdt_val, dXdt_test, len(p), normalize=True)
 
     # Simulate rollout and save data
     # ===============================
@@ -232,9 +232,9 @@ if __name__ == '__main__':
     # Compute energy
     # ================
     for traj_num in range(10):
-        state0_full = jnp.concatenate([Xtest[traj_num, 0, :4], Xtest_norm[traj_num, 0, 4:]])
-        params_phys = Xtest[traj_num, 0, 4:]
-        fig = plot_energy(model, state0_full, dt, n_steps=n_steps, norm_stats=norm_stats)
+        qa_init = jnp.concatenate([Xtest[traj_num, 0, :4], Xtest_norm[traj_num, 0, 4:]])
+        p_phys = Xtest[traj_num, 0, 4:]
+        fig = plot_energy(model, qa_init, dt, n_steps=n_steps, norm_stats=norm_stats)
         # Save energy plot in results/rollouts/
         fig.savefig(str(ROLLOUTS_DIR) + '/' + str(model_name) + f'_energy_test_{traj_num}.png', dpi=300)
         plt.close(fig)
@@ -253,8 +253,8 @@ if __name__ == '__main__':
         jnp.array([-0.6, 0.6, -0.9, 0.9]),
         jnp.array([1.5, 1.0, -1.2, 0.35]),
     ]
-    for i, params_ood in enumerate(ood_cases):
-        fig = test_ood(model, norm_stats, x0s[i], dt, n_steps=n_steps, params_ood=params_ood, fname_prefix=model_name, case_idx=i)
+    for i, p_ood in enumerate(ood_cases):
+        fig = test_ood(model, norm_stats, x0s[i], dt, n_steps=n_steps, params_ood=p_ood, fname_prefix=model_name, case_idx=i)
         fig.savefig(str(OOD_RESULTS_DIR) + '/' + str(model_name) + f'_ood_{i}.png', dpi=300)
         
     print('End of script')

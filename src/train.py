@@ -37,8 +37,8 @@ def compute_loss(model, x, y, split_size=2):
         loss composed of prediction error on normalized accelerations (Huber loss)
         plus a regularizer on normalized energy conservation over the trajectory chunk.
     """
-    batch_q, batch_qt, batch_params = jnp.split(x, [split_size, split_size*2], axis=-1)    # split state into q and qdot
-    preds    = jax.vmap(model)(batch_q, batch_qt, batch_params) # compute prediction with the model
+    batch_q, batch_q_t, batch_p = jnp.split(x, [split_size, split_size*2], axis=-1)    # split state into q and q_t and parameters. p
+    preds    = jax.vmap(model)(batch_q, batch_q_t, batch_p) # compute prediction with the model
     num_loss = jnp.mean(optax.huber_loss(preds, y, delta=1.0))  # compute numerical loss (on acceleration) using Huber loss
     ec_loss = energy_conservation_loss(model, x, split_size=2)  # compute energy conservation variance to help induce energy conservation
     return num_loss + 1.0 * ec_loss # combine losses
@@ -59,7 +59,7 @@ def train_step(model: eqx.Module,
         model (eqx.Module): The current state of the neural network model.
         optimizer_state (optax.OptState): The current state of the Optax optimizer.
         x (jax.Array): The input data batch for the model, typically containing concatenated
-                       generalized coordinates (q), generalized velocities (q_dot),
+                       generalized coordinates (q), generalized velocities (q_t),
                        and system parameters (p). Shape (batch_size * temporal_chunk_len, features).
         y (jax.Array): The target data batch for the model (e.g., ground truth accelerations).
                        Shape (batch_size * temporal_chunk_len, output_dim).
@@ -239,9 +239,9 @@ if __name__ == '__main__':
 
     # DATASET
     # =======
-    # Dataset is a list of arrays of shape [T, 5] = (time, q1, q2, qdot1, qdot2)
+    # Dataset is a list of arrays of shape [T, 5] = (time, q1, q2, q1_t, q2_t)
     
-    datasets, params = load_list_of_arrays_from_h5(system='doublependulum', filename='dp_trajectories.h5')
+    datasets, p = load_list_of_arrays_from_h5(system='doublependulum', filename='dp_trajectories.h5')
     dt = datasets[0][1, 0] - datasets[0][0, 0]
     pos_dim = 2
     vel_dim = 2
@@ -250,7 +250,7 @@ if __name__ == '__main__':
     
     # Build dataset for training: from x = [q, dqdt], build dx/dt numerically
     # ========================================================================
-    X, dXdt = build_input_output(datasets=datasets, params=params, dt=dt)
+    X, dXdt = build_input_output(datasets=datasets, params=p, dt=dt)
     
     # Build train/test sets
     # ==========================
@@ -261,11 +261,11 @@ if __name__ == '__main__':
 
     # Normalize data
     # -----------------
-    # X columns: [q1, q2, w1, w2, m1, m2, l1, l2]; q1, q2 are raw angles in radians — trig transform handles them, don't normalize
-    # w1, w2, m1, m2, l1, l2 — normalize by mean and std
+    # X columns: [q1, q2, q1_t, q2_t, m1, m2, l1, l2]; q1, q2 are raw angles in radians — trig transform handles them, don't normalize
+    # q1_t, q2_t, m1, m2, l1, l2 — normalize by mean and std
     Xtrain_norm, Xval_norm, Xtest_norm, \
         dXdt_train_norm, dXdt_val_norm, dXdt_test_norm, \
-            norm_stats = normalize_data(Xtrain, Xval, Xtest, dXdt_train, dXdt_val, dXdt_test, len(params), normalize=True)
+            norm_stats = normalize_data(Xtrain, Xval, Xtest, dXdt_train, dXdt_val, dXdt_test, len(p), normalize=True)
 
     # MODEL INSTANTIATION
     # ========================================================================
