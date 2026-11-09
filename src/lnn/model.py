@@ -3,6 +3,7 @@
 import jax
 import jax.numpy as jnp
 import equinox as eqx
+from potential import CouplingModel, FunctionalModel, Potential
 
 
 class LagrangianNN(eqx.Module):
@@ -78,7 +79,7 @@ class LagrangianNN(eqx.Module):
             key=kinetic_key,
         )
 
-        # potential net
+        # Building the Potential Network
         self.potential_net = eqx.nn.MLP(
             in_size=trig_dim + param_dim,
             out_size=1,
