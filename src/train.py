@@ -1,6 +1,6 @@
 
 from pathlib import Path
-from typing import List, Tuple
+from typing import Any, Dict, List, Tuple
 import jax
 import optax
 import jax.numpy as jnp
@@ -19,7 +19,7 @@ PRINT_EVERY = 100
 EVAL_EVERY = 300
 SEED = 5678
 
-MODEL_DIR = Path(__file__).resolve().parent / "models"   # ← src/models/
+MODEL_DIR = Path(__file__).resolve().parent.parent / "results" / "models"   # ← results/models/
 MODEL_DIR.mkdir(parents=True, exist_ok=True)            # creates it if it does not exist
 
 
@@ -227,6 +227,7 @@ if __name__ == '__main__':
 
     # Imports for training loop
     # ============================
+    import argparse
     import datetime
     import numpy as np
     import matplotlib.pyplot as plt
@@ -235,7 +236,20 @@ if __name__ == '__main__':
     from train_utils import save_model, load_model
     from train_utils import normalize_data, train_test_split, build_input_output
 
-    print("Training script for JAX models")    
+    # COMMAND LINE ARGUMENTS
+    # =======================
+    parser = argparse.ArgumentParser(description="Train a Lagrangian NN on double pendulum trajectories.")
+    parser.add_argument('--potential', choices=['old', 'new'], required=True,
+                        help="Potential architecture: 'old' = concatenated MLP, 'new' = coupling·functional.")
+    parser.add_argument('--k-potential', type=int, default=2,
+                        help="Number of terms K in V = c(p)·φ(q). Ignored by the 'old' potential.")
+    parser.add_argument('--seed', type=int, default=123,
+                        help="Seed for model initialization and batch sampling. The data split always uses SEED.")
+    parser.add_argument('--no-show', action='store_true',
+                        help="Do not open the loss plot window at the end (for unattended runs).")
+    args = parser.parse_args()
+
+    print("Training script for JAX models")
 
     # DATASET
     # =======
@@ -269,16 +283,23 @@ if __name__ == '__main__':
 
     # MODEL INSTANTIATION
     # ========================================================================
-    key = jax.random.PRNGKey(123)
+    key = jax.random.PRNGKey(args.seed)
     model_key, train_key = jax.random.split(key)
-    model = LagrangianNN(
-        pos_dim = pos_dim,
-        vel_dim = vel_dim,
-        param_dim= param_dim,
-        hidden_dim=128,
-        n_hidden=2,
-        key=model_key
-        )
+
+    # Constructor arguments; saved next to the weights so the model can be rebuilt on load.
+    hyperparams: Dict[str, Any] = {
+        'pos_dim':          pos_dim,
+        'vel_dim':          vel_dim,
+        'param_dim':        param_dim,
+        'hidden_dim':       128,
+        'n_hidden':         2,
+        'k_potential':      args.k_potential,
+        'potential_method': args.potential,
+    }
+    model = LagrangianNN(**hyperparams, key=model_key)
+
+    n_params_potential = sum(x.size for x in jax.tree_util.tree_leaves(eqx.filter(model.potential, eqx.is_array)))
+    print(f"Potential '{args.potential}': {n_params_potential} parameters")
 
     # TRAINING
     # =========================s
@@ -297,21 +318,21 @@ if __name__ == '__main__':
 
     # Save model
     # -----------
-    m_name = f"model_T{BATCH_SIZE}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    k_tag  = f"_K{args.k_potential}" if args.potential == 'new' else ""
+    m_name = f"model_{args.potential}{k_tag}_s{args.seed}_T{BATCH_SIZE}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}"
     save_model_path = MODEL_DIR / m_name
-    save_model(model=model, fname=save_model_path)
+    save_model(model=model, hyperparams=hyperparams, fname=save_model_path)
 
     # Reload model
     # --------------
-    model = LagrangianNN(
-        pos_dim=pos_dim,
-        vel_dim=pos_dim, 
-        param_dim=param_dim,
-        hidden_dim=128, 
-        n_hidden=2,
-        key=model_key
-    )
-    model = load_model(model=model, fname=save_model_path)
+    model, _ = load_model(fname=save_model_path)
+
+    # Test loss
+    # ----------
+    # Same metric as the validation loss, averaged over the test trajectories.
+    test_loss = sum(compute_loss(model, x_i, y_i, split_size=pos_dim) for x_i, y_i in zip(Xtest_norm, dXdt_test_norm))
+    test_loss = float(test_loss / len(Xtest_norm))
+    print(f"Test loss: {test_loss:.8f}")
 
     # Plot and save learning curve
     # ==================
@@ -324,6 +345,9 @@ if __name__ == '__main__':
         save_model_path,
         train_loss_history = loss_history,
         val_loss_history = val_loss_history,
+        test_loss = test_loss,
+        seed = args.seed,
+        n_params_potential = n_params_potential,
         norm_stats = norm_stats
     )
 
@@ -342,5 +366,6 @@ if __name__ == '__main__':
     fig.savefig(str(MODEL_DIR) + '/' + m_name + '_loss_history.png', dpi=300)
 
 
-    plt.show()
+    if not args.no_show:
+        plt.show()
     print('End')

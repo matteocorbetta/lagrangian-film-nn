@@ -6,10 +6,7 @@ import jax.numpy as jnp
 from jax import jit
 import equinox as eqx
 
-
-# CONSTANTS
-# ==========
-GRAVITY = 9.806
+import utils
 
 # Utility functions
 # ==================
@@ -79,7 +76,7 @@ class DoublePendulum(eqx.Module):
     m2: float = 1.0
     l1: float = 1.0
     l2: float = 1.0
-    g: float = GRAVITY
+    g: float = utils.GRAVITY
 
     @jit
     def kinetic_energy(self, q, q_t):

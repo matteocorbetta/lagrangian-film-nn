@@ -1,36 +1,65 @@
-from typing import List, Dict, Tuple
+from typing import Any, List, Dict, Tuple, Optional
 from pathlib import Path
+import json
 
 import jax
 import equinox as eqx
 import jax.numpy as jnp
 import numpy as np
 from data.doublependulum import DoublePendulum
+from lnn import LagrangianNN
 
-def save_model(model: eqx.Module, fname: Path):
-    """Saves an Equinox model's leaves (trainable parameters) to a file.
+
+def save_model(model: eqx.Module, hyperparams: Dict[str, Any], fname: Path) -> None:
+    """Saves an Equinox model's leaves together with the hyperparameters needed to rebuild it.
+
+    Writes two files sharing the same stem:
+        - '<fname>.eqx':  the model leaves (trainable parameters).
+        - '<fname>.json': the `LagrangianNN` constructor arguments, excluding `key`.
 
     Args:
         model (eqx.Module): The Equinox model to save.
-        fname (Path): The base path/filename for the model. A '.eqx' extension will be added.
+        hyperparams (Dict): Constructor arguments used to build `model`, i.e. pos_dim, vel_dim,
+                            param_dim, hidden_dim, n_hidden, k_potential, potential_method.
+                            Must not contain `key` or any non-constructor entry (e.g. seed).
+        fname (Path): The base path/filename for the model. Extensions will be added.
     """
+    with open(str(fname)+'.json', 'w') as f:
+        json.dump(hyperparams, f, indent=2)
     eqx.tree_serialise_leaves(str(fname)+'.eqx', model)
     print(f'Model saved: {fname}')
 
-def load_model(model: eqx.Module, fname: str = "model") -> eqx.Module:
-    """Loads an Equinox model's leaves (trainable parameters) from a file.
+
+def load_model(fname: Path, hyperparams: Optional[Dict[str, Any]] = None) -> Tuple[eqx.Module, Dict[str, Any]]:
+    """Rebuilds a `LagrangianNN` from its hyperparameters and loads its leaves from a file.
+
+    The architecture is read from '<fname>.json', written by `save_model`. Checkpoints saved
+    before the json existed must pass `hyperparams` explicitly.
 
     Args:
-        model (eqx.Module): An uninitialized Equinox model with the correct architecture
-                            to load the parameters into.
-        fname (Path): The base path/filename of the model to load. Assumes a '.eqx' extension.
+        fname (Path): The base path/filename of the model to load, without extension.
+        hyperparams (Dict, optional): Constructor arguments overriding '<fname>.json'.
+                                      Required for checkpoints that have no json file.
 
     Returns:
-        eqx.Module: The model with loaded parameters.
+        Tuple[eqx.Module, Dict]: The model with loaded parameters, and the hyperparameters
+                                 used to build it.
     """
-    model = eqx.tree_deserialise_leaves(str(fname)+".eqx", model)
+    if hyperparams is None:
+        json_path = Path(str(fname)+'.json')
+        if not json_path.exists():
+            raise FileNotFoundError(f"{json_path} not found. Pass `hyperparams` explicitly "
+                                    "for checkpoints saved without a hyperparameter file.")
+        with open(json_path) as f:
+            loaded: Dict[str, Any] = json.load(f)
+        hyperparams = loaded
+
+    # The key only initializes the skeleton; its leaves are overwritten on deserialisation.
+    skeleton = LagrangianNN(**hyperparams, key=jax.random.PRNGKey(0))
+    model = eqx.tree_deserialise_leaves(str(fname)+".eqx", skeleton)
     print(f"Model loaded from: {fname}")
-    return model
+    return model, hyperparams
+
 
 def compute_V_stats(datasets: List[jax.Array], params: List[jax.Array], idx_train: np.ndarray) -> Tuple[jnp.Array, jnp.Array]:
     """Computes mean and standard deviation of potential energy for the training set.

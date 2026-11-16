@@ -1,4 +1,5 @@
 from pathlib import Path
+import argparse
 import jax
 import jax.numpy as jnp
 from jax.experimental.ode import odeint
@@ -7,14 +8,12 @@ import matplotlib.pyplot as plt
 from data import load_list_of_arrays_from_h5
 from data.doublependulum import DoublePendulum
 
-from lnn import LagrangianNN
 from simulate import make_rollout, save_rollout_data
 from train_utils import normalize_data, build_input_output, train_test_split, run_diagnostics, load_model
 
 
 # GLOBAL VARS
 # ===============
-MODEL_DIR = Path(__file__).resolve().parent / "models"   # ← src/models/
 RESULTS_DIR = Path(__file__).resolve().parents[1] / "results" # <- results
 # Create specific subdirectories for different types of rollouts
 ROLLOUTS_DIR = RESULTS_DIR / "rollouts"
@@ -30,10 +29,11 @@ SEED = 5678 # to match training and have the same test set data
 
 # FUNCTIONS
 # ===========
-def test_ood(model, norm_stats, x0, dt, n_steps, params_ood, fname_prefix: str, case_idx: int = 0):
+def test_ood(model, norm_stats, x0, dt, n_steps, params_ood, fname_prefix: str, save_dir: Path, case_idx: int = 0):
     """
     Test model on out-of-distribution parameters.
     params_ood: dict with keys m1, m2, l1, l2
+    save_dir: directory where the rollout data is saved.
     """
     m1, m2, l1, l2 = params_ood['m1'], params_ood['m2'], params_ood['l1'], params_ood['l2']
     
@@ -59,7 +59,7 @@ def test_ood(model, norm_stats, x0, dt, n_steps, params_ood, fname_prefix: str, 
 
     # Save OOD results data
     save_rollout_data(
-        save_dir=OOD_RESULTS_DIR,
+        save_dir=save_dir,
         filename_prefix=fname_prefix,
         times=times,
         gt_states=gt_states,
@@ -111,7 +111,7 @@ def plot_energy(model, qa_init, dt, n_steps, norm_stats):
                         [chol[1],                  jax.nn.softplus(chol[2])]])
         M = L.T @ L + jnp.eye(2) * 1e-6
         T = 0.5 * q_t_norm @ M @ q_t_norm
-        V = model.compute_potential(q_trig, p_norm)
+        V = model.compute_potential(q_norm, p_norm)
         return T + V
 
     # Model normalized Hamiltonian along rollout
@@ -133,7 +133,7 @@ def plot_energy(model, qa_init, dt, n_steps, norm_stats):
     return fig
 
 
-def gen_multiple_plots(X, X_norm, norm_stats, n_steps: int = 3000, num_plots: int = 10, fname_prefix: str = 'rollout'):
+def gen_multiple_plots(X, X_norm, norm_stats, save_dir: Path, n_steps: int = 3000, num_plots: int = 10, fname_prefix: str = 'rollout'):
     rollout_fn = make_rollout(n_steps=n_steps, norm_stats=norm_stats)
     for traj_num in range(num_plots):
         q_init = X[traj_num, 0, :4]
@@ -144,7 +144,7 @@ def gen_multiple_plots(X, X_norm, norm_stats, n_steps: int = 3000, num_plots: in
         # Save rollout data
         p_phys = X[traj_num, 0, 4:]
         save_rollout_data(
-            save_dir=ROLLOUTS_DIR,
+            save_dir=save_dir,
             filename_prefix=fname_prefix,
             times=time_v[:n_steps], # Only save times relevant to n_steps
             gt_states=X[traj_num, :n_steps, :4], # Ground truth q, q_t for n_steps
@@ -156,7 +156,7 @@ def gen_multiple_plots(X, X_norm, norm_stats, n_steps: int = 3000, num_plots: in
 
         # Plotting (assuming plot_rollout is defined to take specific data)
         fig = plot_rollout(X[traj_num], states_, time_v, n_steps)
-        fig.savefig(ROLLOUTS_DIR / f"{fname_prefix}_{traj_num}.png", dpi=300) # Save plots in results/rollouts/
+        fig.savefig(save_dir / f"{fname_prefix}_{traj_num}.png", dpi=300) # Save plots in results/rollouts/<run>/
         plt.close(fig) # Close figure to free memory
 
 
@@ -176,19 +176,25 @@ def plot_rollout(X, states_, time_v, n_steps):
 
 if __name__ == '__main__':
 
+    # COMMAND LINE ARGUMENTS
+    # =======================
+    parser = argparse.ArgumentParser(description="Rollouts, energy drift and OOD tests for a trained Lagrangian NN.")
+    parser.add_argument('--model', type=Path, required=True,
+                        help="Checkpoint path without extension, e.g. results/models/model_new_K2_s123_T512_<timestamp>.")
+    args = parser.parse_args()
+
     # LOAD MODEL
     # ===================
-    pos_dim   = 2
-    vel_dim   = 2
-    param_dim = 4
-    state_dim = pos_dim + vel_dim
+    # Architecture is rebuilt from the '.json' saved next to the checkpoint.
+    model, hyperparams = load_model(fname=args.model)
+    model_name = args.model.name
+    print(f"Potential method: {hyperparams['potential_method']}")
 
-    key = jax.random.PRNGKey(123)
-    model_key, train_key = jax.random.split(key)
-    
-    model_name = f"model_T512_20260317_133032"
-    model = LagrangianNN(pos_dim=pos_dim,vel_dim=pos_dim, param_dim=param_dim,hidden_dim=128, n_hidden=2,key=model_key)
-    model = load_model(model, MODEL_DIR / model_name)
+    # Per-run output folders, so results of different models do not overwrite each other
+    run_rollouts_dir = ROLLOUTS_DIR / model_name
+    run_ood_dir      = OOD_RESULTS_DIR / model_name
+    run_rollouts_dir.mkdir(parents=True, exist_ok=True)
+    run_ood_dir.mkdir(parents=True, exist_ok=True)
 
     # LOAD DATA
     # =======
@@ -222,11 +228,11 @@ if __name__ == '__main__':
     n_steps = 3000
 
     # Save and plot train set rollouts
-    fig_train = gen_multiple_plots(X=Xtrain, X_norm=Xtrain_norm, norm_stats=norm_stats, 
+    fig_train = gen_multiple_plots(X=Xtrain, X_norm=Xtrain_norm, norm_stats=norm_stats, save_dir=run_rollouts_dir,
                                    n_steps=n_steps, num_plots=3, fname_prefix=model_name+'_train')
-    
+
     # Save and plot test set rollouts
-    fig_test = gen_multiple_plots(X=Xtest, X_norm=Xtest_norm, norm_stats=norm_stats, 
+    fig_test = gen_multiple_plots(X=Xtest, X_norm=Xtest_norm, norm_stats=norm_stats, save_dir=run_rollouts_dir,
                                   n_steps=n_steps, num_plots=10, fname_prefix=model_name+'_test')
     
     # Compute energy
@@ -236,7 +242,7 @@ if __name__ == '__main__':
         p_phys = Xtest[traj_num, 0, 4:]
         fig = plot_energy(model, qa_init, dt, n_steps=n_steps, norm_stats=norm_stats)
         # Save energy plot in results/rollouts/
-        fig.savefig(str(ROLLOUTS_DIR) + '/' + str(model_name) + f'_energy_test_{traj_num}.png', dpi=300)
+        fig.savefig(run_rollouts_dir / f'{model_name}_energy_test_{traj_num}.png', dpi=300)
         plt.close(fig)
     
     # OOD tests — progressively further from training distribution
@@ -254,8 +260,9 @@ if __name__ == '__main__':
         jnp.array([1.5, 1.0, -1.2, 0.35]),
     ]
     for i, p_ood in enumerate(ood_cases):
-        fig = test_ood(model, norm_stats, x0s[i], dt, n_steps=n_steps, params_ood=p_ood, fname_prefix=model_name, case_idx=i)
-        fig.savefig(str(OOD_RESULTS_DIR) + '/' + str(model_name) + f'_ood_{i}.png', dpi=300)
+        fig = test_ood(model, norm_stats, x0s[i], dt, n_steps=n_steps, params_ood=p_ood,
+                       fname_prefix=model_name, save_dir=run_ood_dir, case_idx=i)
+        fig.savefig(run_ood_dir / f'{model_name}_ood_{i}.png', dpi=300)
         
     print('End of script')
     plt.show()

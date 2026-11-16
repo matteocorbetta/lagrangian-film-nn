@@ -2,6 +2,9 @@ import jax
 import equinox as eqx
 import jax.numpy as jnp
 
+import utils
+
+
 def energy_conservation_loss(model: eqx.Module, x: jax.Array, split_size: int = 2) -> jax.Array:
     """
     Calculates a loss term that penalizes drift in the model's normalized
@@ -40,7 +43,7 @@ def energy_conservation_loss(model: eqx.Module, x: jax.Array, split_size: int = 
                         [chol[1], jax.nn.softplus(chol[2])]])
         M = L.T @ L + jnp.eye(2) * 1e-6
         T = 0.5 * q_t @ M @ q_t
-        V = model.compute_potential(trig_q, p)
+        V = model.compute_potential(q, p)
         return T + V
 
     H = jax.vmap(single_H)(batch_q, batch_q_t, batch_p)
@@ -100,7 +103,7 @@ def potential_loss(model, x, norm_stats, V_mean, V_std, split_size=2):
     def gt_V(q_phys, p_phys):
         y1 = -p_phys[2] * jnp.cos(q_phys[0])
         y2 = y1 - p_phys[3] * jnp.cos(q_phys[1])
-        return (p_phys[0] + p_phys[1]) * 9.806 * y1 + p_phys[1] * 9.806 * y2
+        return p_phys[0] * utils.GRAVITY * y1 + p_phys[1] * utils.GRAVITY * y2
     
     V_model = jax.vmap(model_V)(batch_q, batch_p)
     V_gt    = jax.vmap(gt_V)(batch_q_phys, batch_p_phys)

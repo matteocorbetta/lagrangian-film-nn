@@ -1,11 +1,18 @@
 
 # Building MLP model 
+
+# IMPORTS
+# ========
 import jax
 import jax.numpy as jnp
 import equinox as eqx
-from potential import CouplingModel, FunctionalModel, Potential
+
+from .potential import CouplingModel, FunctionalModel, Potential, ConcatPotential
+from .aux_functions import trig_transform
 
 
+# CLASSES
+# ========
 class LagrangianNN(eqx.Module):
     """
     Neural network model for learning a structured Lagrangian representation of a
@@ -32,7 +39,7 @@ class LagrangianNN(eqx.Module):
     returning the generalized accelerations (q_tt).
     """
     kinetic_net:    eqx.nn.MLP
-    potential_net:  eqx.nn.MLP
+    potential:      Potential | ConcatPotential
     film_net:       eqx.nn.MLP
     n_hidden:       int
     hidden_dim:     int
@@ -43,9 +50,9 @@ class LagrangianNN(eqx.Module):
                  hidden_dim: int, 
                  n_hidden: int, 
                  param_dim: int,
-                 key: jnp.array, 
-                 **kwds):
-        super().__init__(**kwds)
+                 k_potential: int,
+                 key: jax.Array,
+                 potential_method: str = 'old') -> None:
         """Initializes the Lagrangian Neural Network.
 
         Args:
@@ -55,17 +62,17 @@ class LagrangianNN(eqx.Module):
                              e.g., masses and lengths.
             hidden_dim (int): Width of the hidden layers in the `lagrangian_net`.
             n_hidden (int): Number of hidden layers in the `lagrangian_net`.
-            key (jnp.array): JAX PRNGKey for initializing model weights.
+            key (jax.Array): JAX PRNGKey for initializing model weights.
             apply_trig_fn (bool, optional): If True, converts generalized coordinates `q`
                                             into `[sin(q_i), cos(q_i)]` pairs for input
                                             to the `lagrangian_net`. Defaults to True.
-            **kwds: Additional keyword arguments for Equinox.
         """
+
         self.hidden_dim = hidden_dim
         self.n_hidden = n_hidden
         trig_dim = pos_dim * 2
 
-        kinetic_key, potential_key, film_key = jax.random.split(key, 3)
+        kinetic_key, potential_key_1, potential_key_2, film_key = jax.random.split(key, 4)
         
         # kinetic net
         output_dim_kin = vel_dim * (vel_dim+1)//2
@@ -80,14 +87,35 @@ class LagrangianNN(eqx.Module):
         )
 
         # Building the Potential Network
-        self.potential_net = eqx.nn.MLP(
-            in_size=trig_dim + param_dim,
-            out_size=1,
-            width_size=hidden_dim,
-            depth=n_hidden,
-            activation=jax.nn.tanh,
-            key=potential_key
-        )
+        # ==============================
+        if potential_method == 'old':
+            self.potential = ConcatPotential(
+                in_size=trig_dim + param_dim, 
+                out_size=1,
+                width_size=hidden_dim,
+                depth=n_hidden,
+                activation=jax.nn.tanh,
+                final_activation=lambda x: x,    # identity for now; apply softplus later.
+                key=potential_key_1,
+            )
+
+        elif potential_method == 'new':
+            self.potential = Potential(
+                coupling=CouplingModel(in_size=param_dim,  # coupling of parameters
+                                    out_size=k_potential, 
+                                    width_size=hidden_dim, 
+                                    depth=n_hidden, 
+                                    activation=jax.nn.tanh,
+                                    key=potential_key_1),
+                functional=FunctionalModel(in_size=trig_dim,  # functional form for DOF term
+                                        out_size=k_potential, 
+                                        width_size=hidden_dim, 
+                                        depth=n_hidden, 
+                                        activation=jax.nn.tanh,
+                                        key=potential_key_2)
+            )
+        else:
+            raise ValueError(f"potential_method must be 'old' or 'new', got {potential_method!r}")
 
         # Feature-wIse Linear Modulation (FiLM)
         # ====================================
@@ -129,24 +157,20 @@ class LagrangianNN(eqx.Module):
             h = gamma * h + beta
         return h
 
-    def compute_cholesky_entries(self, q: jnp.Array, film_p: jnp.Array) -> jnp.Array:
+    def compute_cholesky_entries(self, q: jax.Array, film_p: jax.Array) -> jax.Array:
         h = self.apply_film(q, film_p, self.kinetic_net)
         return self.kinetic_net.layers[self.n_hidden](h)
     
-    def compute_potential(self, q: jnp.Array, p: jnp.Array) -> jnp.Array:
-        h_pot = jnp.concatenate([q, p])
-        return jnp.squeeze(self.potential_net(h_pot))
+    def compute_potential(self, q: jax.Array, p: jax.Array) -> jax.Array:
+        return self.potential(q, p)
 
     def compute_lagrangian(self, q: jax.Array, q_t: jax.Array, p: jax.Array) -> jax.Array:    
-        
+
         # Transform angles to trigonometric features to avoid discontinuities at
         # angle wraparound. Angles are kept in their original scale, while
         # velocities and parameters are normalized elsewhere for optimization
         # stability.
-        trig_q = []
-        for qi in q:
-            trig_q.extend([jnp.sin(qi), jnp.cos(qi)])
-        trig_q = jnp.array(trig_q)
+        trig_q = trig_transform(q)
         
         # Compute FiLM parameters from the normalized system parameters.
         # Reshape to (n_hidden, 2) where each row is [gamma_i, beta_i].
@@ -165,7 +189,7 @@ class LagrangianNN(eqx.Module):
         T = 0.5 * q_t @ M @ q_t
         
         # Compute the normalized potential energy.
-        V = self.compute_potential(trig_q, p)
+        V = self.compute_potential(q, p)
         
         # Return the learned structured Lagrangian in normalized coordinates.
         return T - V
@@ -206,13 +230,14 @@ class LagrangianNN(eqx.Module):
         q_tt    = jnp.linalg.solve(l_qt_qt, rhs)    # acceleration
         return q_tt
 
+
 if __name__ == '__main__':
 
     print('Try initialize the model')
 
     key = jax.random.PRNGKey(32)
     # Example initialization: 2D position, 2D velocity, 4D parameters
-    model = LagrangianNN(pos_dim=2, vel_dim=2, param_dim=4, hidden_dim=128, n_hidden=2, key=key)
+    model = LagrangianNN(pos_dim=2, vel_dim=2, param_dim=4, hidden_dim=128, n_hidden=2, k_potential=2, key=key)
 
     print(model)
 
@@ -226,7 +251,7 @@ if __name__ == '__main__':
     print("Example q_tt output value:", q_tt_output)
 
     # Verify input_lagrangian_net_size logic
-    model_trig = LagrangianNN(pos_dim=2, vel_dim=2, param_dim=4, hidden_dim=128, n_hidden=2, key=key)
+    model_trig = LagrangianNN(pos_dim=2, vel_dim=2, param_dim=4, hidden_dim=128, n_hidden=2, k_potential=2, key=key)
 
     # Check input sizes after init
     print(f"LagrangianNet kinetic input size: {model_trig.kinetic_net.in_size}") # Should be (2*2 + 2) = 6

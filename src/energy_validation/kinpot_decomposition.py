@@ -1,3 +1,4 @@
+import argparse
 import jax
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
@@ -15,14 +16,12 @@ if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
 # Import necessary components from other modules
-from lnn import LagrangianNN # Model architecture
 from train_utils import load_model, normalize_data # Helper functions
 from data.doublependulum import DoublePendulum # For analytical comparison
 
 # GLOBAL VARS (define relative to this script's location)
 # =======================================================
 
-MODEL_DIR = SRC_DIR / "models" # Points to src/models/
 RESULTS_DIR = SRC_DIR.parent / "results" # Points to project_root/results/
 KPD_RESULTS_DIR = RESULTS_DIR / "kinpot_decomposition" # Specific dir for these plots
 KPD_RESULTS_DIR.mkdir(parents=True, exist_ok=True) # Ensure it exists
@@ -53,9 +52,7 @@ def plot_TV_decomposition(model, norm_stats, params_phys, n_grid=50):
     # --- Potential energy V(q1, q2) ---
     def model_V(q1, q2):
         q = jnp.array([q1, q2])
-        trig_q = jnp.array([jnp.sin(q[0]), jnp.cos(q[0]),
-                             jnp.sin(q[1]), jnp.cos(q[1])])
-        return model.compute_potential(trig_q, p_norm)
+        return model.compute_potential(q, p_norm)
     
     def gt_V(q1, q2):
         return dp.potential_energy(jnp.array([q1, q2]))
@@ -143,36 +140,28 @@ if __name__ == '__main__':
 
     print('Kinetic-Potential Energy Decomposition Validation')
 
+    # COMMAND LINE ARGUMENTS
+    # =======================
+    parser = argparse.ArgumentParser(description="Compare learned T and V against the analytical double pendulum.")
+    parser.add_argument('--model', type=Path, required=True,
+                        help="Checkpoint path without extension, e.g. results/models/model_new_K2_s123_T512_<timestamp>.")
+    args = parser.parse_args()
+
     # MODEL LOADING
     # ===================
-    pos_dim = 2
-    vel_dim = 2
-    param_dim = 4
-    
-    key = jax.random.PRNGKey(123)
-    model_key, _ = jax.random.split(key) # Only need model_key here
+    # Architecture is rebuilt from the '.json' saved next to the checkpoint.
+    model, hyperparams = load_model(fname=args.model)
+    model_name = args.model.name
+    print(f"Potential method: {hyperparams['potential_method']}")
 
-    # Dynamically find the latest model (assuming naming convention `best_model_YYYYMMDD_HHMMSS.eqx`)
-    model_name = str(MODEL_DIR) + '/' + f"model_T512_20260317_133032"
-    # model_name = str(MODEL_DIR) + '/' + f"model_T512_20260317_164201"
+    # Per-run output folder, so results of different models do not overwrite each other
+    run_kpd_dir = KPD_RESULTS_DIR / model_name
+    run_kpd_dir.mkdir(parents=True, exist_ok=True)
 
-    # Instantiate the model architecture
-    model = LagrangianNN(
-        pos_dim=pos_dim,
-        vel_dim=vel_dim,
-        param_dim=param_dim,
-        hidden_dim=128,
-        n_hidden=2,
-        key=model_key # Use the same key for initial instantiation
-    )
-    # Load the trained parameters into the model
-    # load_model expects the stem (filename without extension)
-    model = load_model(model, model_name) 
-    
     # NORM STATS LOADING
     # ===================
-    # Assume norm_stats are saved in an .npz file with the same stem as the model
-    with np.load(model_name+'.npz', allow_pickle=True) as data:
+    # norm_stats are saved in an .npz file with the same stem as the model
+    with np.load(str(args.model)+'.npz', allow_pickle=True) as data:
         norm_stats = data['norm_stats'].item()
 
     # VALIDATION SCENARIOS
@@ -188,7 +177,7 @@ if __name__ == '__main__':
         print(f"\nGenerating plots for parameter set {i+1}: {p_phys}")
         fig = plot_TV_decomposition(model, norm_stats, p_phys)
         # Save the plot
-        plot_filename = KPD_RESULTS_DIR / f"{model_name}_kpd_case_{i}.png"
+        plot_filename = run_kpd_dir / f"{model_name}_kpd_case_{i}.png"
         fig.savefig(plot_filename, dpi=300)
         plt.close(fig) # Close figure to free memory
 
