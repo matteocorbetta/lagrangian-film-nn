@@ -1,28 +1,11 @@
-import sys
 from typing import Tuple
 from pathlib import Path
 import numpy as np
 
 from visualization_utils import animate_comparison, plot_phase_portrait, animate_with_phase, animate_trajectory_on_V
 
-# --- Dynamic path adjustment for imports ---
-# Get the absolute path to the 'results' directory (where this script lives)
-# Path(__file__).resolve().parent is 'project_root/results/'
-RESULTS_DIR = Path(__file__).resolve().parent
-
-# Move up one level to the project root: 'project_root/'
-PROJECT_ROOT = RESULTS_DIR.parent
-
-# Now, construct the path to the 'src' directory: 'project_root/src/'
-SRC_DIR = PROJECT_ROOT / "src"
-
-# Add 'src/' to Python's system path so it can find modules within 'src/'
-if str(SRC_DIR) not in sys.path:
-    sys.path.insert(0, str(SRC_DIR))
-# ------------------------------------------
-
-
-from data.doublependulum import DoublePendulum
+from lagrangian_film_nn.data.doublependulum import DoublePendulum
+from lagrangian_film_nn.utils import RESULTS_DIR
 
 def load_data_from_file(fname: Path) -> Tuple[np.ndarray, np.ndarray, np.ndarray, float]:
     """Loads ground truth and simulated trajectory data, along with parameters and dt, from an NPZ file.
@@ -61,7 +44,7 @@ def load_data_from_file(fname: Path) -> Tuple[np.ndarray, np.ndarray, np.ndarray
 
 
 def animate_over_V(fname: Path, model_name: str):
-    from lnn.model import LagrangianNN
+    from lagrangian_film_nn.lnn.model import LagrangianNN
     import jax
     key = jax.random.PRNGKey(123)
     model_key, _ = jax.random.split(key)
@@ -123,8 +106,9 @@ if __name__ == '__main__':
     print("visualization tools")
 
     #  load saved results
-    fname_form = 'rollouts/model_T512_20260317_133032_test_traj_{index}.npz'
+    # fname_form = 'rollouts/model_T512_20260317_133032_test_traj_{index}.npz'
     # fname_form = 'ood_tests/model_T512_20260317_133032_case_{index}.npz'
+    fname_form = "rollouts/model_new_K2_s123_T512_20261121_155307/model_new_K2_s123_T512_20261121_155307_test_traj_{index}.npz"
 
     for index in range(10):
         save_visualizations(RESULTS_DIR / fname_form.format(index=index), index_=index)

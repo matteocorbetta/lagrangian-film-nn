@@ -149,17 +149,17 @@ The repo is still script-first rather than config-first.
 
 The main workflow is:
 
-1. generate data with `src/data/generate_dataset.py`
-2. train with `src/train.py`
-3. evaluate with `src/inference.py`
+1. generate data with `python -m lagrangian_film_nn.data.generate_dataset`
+2. train with `python -m lagrangian_film_nn.train`
+3. evaluate with `python -m lagrangian_film_nn.inference`
 4. visualize saved results from `results/`
 
 That keeps the project easy to inspect, even if it is not yet the cleanest possible reusable interface.
 
 ## Source Files To Read
 
-- `src/lnn/model.py`
-- `src/losses.py`
-- `src/train.py`
-- `src/train_utils.py`
-- `src/inference.py`
+- `src/lagrangian_film_nn/lnn/model.py`
+- `src/lagrangian_film_nn/losses.py`
+- `src/lagrangian_film_nn/train.py`
+- `src/lagrangian_film_nn/train_utils.py`
+- `src/lagrangian_film_nn/inference.py`

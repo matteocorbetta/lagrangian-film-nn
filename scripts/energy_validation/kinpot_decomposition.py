@@ -1,30 +1,34 @@
 import argparse
+from pathlib import Path
+
 import jax
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
-import numpy as np # For np.load, np.asarray
-from pathlib import Path
-from typing import Dict # For type hints
-import sys
+import numpy as np
 
-# Path(__file__).resolve() gives the absolute path to kinpot_decomposition.py
-# .parent gives src/validation/
-# .parents[1] gives src/
-# So, Path(__file__).resolve().parents[1] is the 'src' directory.
-SRC_DIR = Path(__file__).resolve().parents[1]
-if str(SRC_DIR) not in sys.path:
-    sys.path.insert(0, str(SRC_DIR))
+from lagrangian_film_nn.train_utils import load_model
+from lagrangian_film_nn.utils import RESULTS_DIR
 
-# Import necessary components from other modules
-from train_utils import load_model, normalize_data # Helper functions
-from data.doublependulum import DoublePendulum # For analytical comparison
-
-# GLOBAL VARS (define relative to this script's location)
-# =======================================================
-
-RESULTS_DIR = SRC_DIR.parent / "results" # Points to project_root/results/
+# GLOBAL VARS
+# ===========
 KPD_RESULTS_DIR = RESULTS_DIR / "kinpot_decomposition" # Specific dir for these plots
 KPD_RESULTS_DIR.mkdir(parents=True, exist_ok=True) # Ensure it exists
+
+
+def range_percent_error(pred: jax.Array, target: jax.Array) -> jax.Array:
+    """Absolute error as a percentage of the target's range over the grid.
+
+    A pointwise relative error |pred - target| / |target| is ill-defined here: the aligned
+    (z-scored) fields cross zero, so the ratio diverges along those curves.
+
+    Args:
+        pred (jax.Array): Predicted field.
+        target (jax.Array): Ground-truth field, same shape as `pred`.
+
+    Returns:
+        jax.Array: 100 * |pred - target| / (max(target) - min(target)), same shape as `pred`.
+    """
+    return 100.0 * jnp.abs(pred - target) / (jnp.max(target) - jnp.min(target) + 1e-8)
 
 
 def plot_TV_decomposition(model, norm_stats, params_phys, n_grid=50):
@@ -34,7 +38,7 @@ def plot_TV_decomposition(model, norm_stats, params_phys, n_grid=50):
     
     params_phys: [m1, m2, l1, l2] in physical units
     """
-    from data.doublependulum import DoublePendulum
+    from lagrangian_film_nn.data.doublependulum import DoublePendulum
     
     X_mean, X_std = norm_stats['X_mean'], norm_stats['X_std']
     
@@ -95,40 +99,43 @@ def plot_TV_decomposition(model, norm_stats, params_phys, n_grid=50):
     fig, axes = plt.subplots(2, 3, figsize=(15, 9))
     fig.suptitle(f'm1={p_phys[0]:.2f}, m2={p_phys[1]:.2f}, l1={p_phys[2]:.2f}, l2={p_phys[3]:.2f}; q_t={q_t_test}')
     
-    vmin_V = min(V_gt_aligned.min(), V_model_aligned.min())
-    vmax_V = max(V_gt_aligned.max(), V_model_aligned.max())
-    vmin_T = min(T_gt_aligned.min(), T_model_aligned.min())
-    vmax_T = max(T_gt_aligned.max(), T_model_aligned.max())
-    
+    # Shared contour levels, so ground truth and model use the same colorbar range
+    # (an integer `levels` would be chosen from each array's own min/max).
+    n_levels = 30
+    levels_V = np.linspace(float(min(V_gt_aligned.min(), V_model_aligned.min())),
+                           float(max(V_gt_aligned.max(), V_model_aligned.max())), n_levels + 1)
+    levels_T = np.linspace(float(min(T_gt_aligned.min(), T_model_aligned.min())),
+                           float(max(T_gt_aligned.max(), T_model_aligned.max())), n_levels + 1)
+
     # V plots
-    im = axes[0, 0].contourf(Q1, Q2, V_gt_aligned, levels=30, vmin=vmin_V, vmax=vmax_V)
+    im = axes[0, 0].contourf(Q1, Q2, V_gt_aligned, levels=levels_V)
     axes[0, 0].set_title('V ground truth (normalized)')
     axes[0, 0].set_xlabel('q1'); axes[0, 0].set_ylabel('q2')
     plt.colorbar(im, ax=axes[0, 0])
     
-    im = axes[0, 1].contourf(Q1, Q2, V_model_aligned, levels=30, vmin=vmin_V, vmax=vmax_V)
+    im = axes[0, 1].contourf(Q1, Q2, V_model_aligned, levels=levels_V)
     axes[0, 1].set_title('V model (normalized)')
     axes[0, 1].set_xlabel('q1'); axes[0, 1].set_ylabel('q2')
     plt.colorbar(im, ax=axes[0, 1])
     
-    im = axes[0, 2].contourf(Q1, Q2, jnp.abs(V_model_aligned - V_gt_aligned), levels=30)
-    axes[0, 2].set_title('|V model - V gt|')
+    im = axes[0, 2].contourf(Q1, Q2, range_percent_error(V_model_aligned, V_gt_aligned), levels=30)
+    axes[0, 2].set_title('|V model - V gt| [% of V gt range]')
     axes[0, 2].set_xlabel('q1'); axes[0, 2].set_ylabel('q2')
     plt.colorbar(im, ax=axes[0, 2])
     
     # T plots
-    im = axes[1, 0].contourf(Q1, Q2, T_gt_aligned, levels=30, vmin=vmin_T, vmax=vmax_T)
+    im = axes[1, 0].contourf(Q1, Q2, T_gt_aligned, levels=levels_T)
     axes[1, 0].set_title('T ground truth (normalized)')
     axes[1, 0].set_xlabel('q1'); axes[1, 0].set_ylabel('q2')
     plt.colorbar(im, ax=axes[1, 0])
     
-    im = axes[1, 1].contourf(Q1, Q2, T_model_aligned, levels=30, vmin=vmin_T, vmax=vmax_T)
+    im = axes[1, 1].contourf(Q1, Q2, T_model_aligned, levels=levels_T)
     axes[1, 1].set_title('T model (normalized)')
     axes[1, 1].set_xlabel('q1'); axes[1, 1].set_ylabel('q2')
     plt.colorbar(im, ax=axes[1, 1])
     
-    im = axes[1, 2].contourf(Q1, Q2, jnp.abs(T_model_aligned - T_gt_aligned), levels=30)
-    axes[1, 2].set_title('|T model - T gt|')
+    im = axes[1, 2].contourf(Q1, Q2, range_percent_error(T_model_aligned, T_gt_aligned), levels=30)
+    axes[1, 2].set_title('|T model - T gt| [% of T gt range]')
     axes[1, 2].set_xlabel('q1'); axes[1, 2].set_ylabel('q2')
     plt.colorbar(im, ax=axes[1, 2])
     

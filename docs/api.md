@@ -6,30 +6,30 @@ This page documents the reusable modules in the repository. The project is prima
 
 The most reusable modules are:
 
-- `lnn`: model definition and the `LagrangianNN` entrypoint
-- `data`: analytical system helpers and HDF5 dataset utilities
-- training and simulation helpers in `train_utils`, `simulate`, and `losses`
+- `lagrangian_film_nn.lnn`: model definition and the `LagrangianNN` entrypoint
+- `lagrangian_film_nn.data`: analytical system helpers and HDF5 dataset utilities
+- training and simulation helpers in `lagrangian_film_nn.train_utils`, `lagrangian_film_nn.simulate`, and `lagrangian_film_nn.losses`
 
 The API documentation below focuses on importable functions and classes rather than `__main__` script blocks.
 
 ## Core Model
 
-::: lnn
+::: lagrangian_film_nn.lnn
 
-::: lnn.model
+::: lagrangian_film_nn.lnn.model
 
 ## Analytical System And Dataset Utilities
 
-::: data
+::: lagrangian_film_nn.data
 
-::: data.doublependulum
+::: lagrangian_film_nn.data.doublependulum
 
-::: data.utils
+::: lagrangian_film_nn.data.utils
 
 ## Training And Simulation Helpers
 
-::: train_utils
+::: lagrangian_film_nn.train_utils
 
-::: simulate
+::: lagrangian_film_nn.simulate
 
-::: losses
+::: lagrangian_film_nn.losses

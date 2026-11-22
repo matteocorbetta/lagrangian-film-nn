@@ -30,11 +30,11 @@ one concrete implementation path.
 
 ## Repo Map
 
-- `src/data/`: analytical double-pendulum dynamics, sampling, and dataset generation
-- `src/lnn/`: the `LagrangianNN` model
-- `src/train.py`: training loop and checkpoint saving
-- `src/inference.py`: rollout evaluation, normalized-energy plots, and OOD tests
-- `src/simulate.py`: RK4 rollout utilities
+- `src/lagrangian_film_nn/data/`: analytical double-pendulum dynamics, sampling, and dataset generation
+- `src/lagrangian_film_nn/lnn/`: the `LagrangianNN` model
+- `src/lagrangian_film_nn/train.py`: training loop and checkpoint saving
+- `src/lagrangian_film_nn/inference.py`: rollout evaluation, normalized-energy plots, and OOD tests
+- `src/lagrangian_film_nn/simulate.py`: RK4 rollout utilities
 - `results/`: plotting and animation helpers
 
 ## Citation

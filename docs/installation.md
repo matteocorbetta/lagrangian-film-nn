@@ -43,5 +43,5 @@ On macOS, Docker Desktop runs Linux containers inside a lightweight VM. That mea
 If you want to manually test the first script-oriented workflow step after the smoke test, you can run:
 
 ```bash
-docker run --rm -it lagrangiannn uv run python src/data/generate_dataset.py
+docker run --rm -it lagrangiannn uv run python -m lagrangian_film_nn.data.generate_dataset
 ```

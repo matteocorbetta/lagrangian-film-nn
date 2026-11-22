@@ -6,8 +6,8 @@ import jax
 import equinox as eqx
 import jax.numpy as jnp
 import numpy as np
-from data.doublependulum import DoublePendulum
-from lnn import LagrangianNN
+from lagrangian_film_nn.data.doublependulum import DoublePendulum
+from lagrangian_film_nn.lnn import LagrangianNN
 
 
 def save_model(model: eqx.Module, hyperparams: Dict[str, Any], fname: Path) -> None:

@@ -43,12 +43,12 @@ where:
 
 ## Core Scripts
 
-- `src/lnn/model.py`: FiLM-conditioned `LagrangianNN`
-- `src/data/doublependulum.py`: analytical double-pendulum dynamics and energy functions
-- `src/data/generate_dataset.py`: synthetic trajectory generation
-- `src/train.py`: training loop and optimization
-- `src/inference.py`: held-out rollouts, energy plots, and OOD tests
-- `src/simulate.py`: RK4 rollout utilities
+- `src/lagrangian_film_nn/lnn/model.py`: FiLM-conditioned `LagrangianNN`
+- `src/lagrangian_film_nn/data/doublependulum.py`: analytical double-pendulum dynamics and energy functions
+- `src/lagrangian_film_nn/data/generate_dataset.py`: synthetic trajectory generation
+- `src/lagrangian_film_nn/train.py`: training loop and optimization
+- `src/lagrangian_film_nn/inference.py`: held-out rollouts, energy plots, and OOD tests
+- `src/lagrangian_film_nn/simulate.py`: RK4 rollout utilities
 - `results/visualization.py`: GIF and phase-space visualization tools
 - `docs/`: MkDocs site content
 
@@ -98,19 +98,19 @@ uv sync
 Generate a dataset:
 
 ```bash
-uv run python src/data/generate_dataset.py
+uv run python -m lagrangian_film_nn.data.generate_dataset
 ```
 
 Train a model:
 
 ```bash
-uv run python src/train.py
+uv run python -m lagrangian_film_nn.train
 ```
 
 Run inference, held-out rollouts, and OOD tests:
 
 ```bash
-uv run python src/inference.py
+uv run python -m lagrangian_film_nn.inference
 ```
 
 Generate animations and phase plots from saved rollout artifacts:

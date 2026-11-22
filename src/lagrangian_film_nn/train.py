@@ -5,8 +5,9 @@ import jax
 import optax
 import jax.numpy as jnp
 import equinox as eqx
-from train_utils import build_temporal_batch
-from losses import energy_conservation_loss
+from lagrangian_film_nn.train_utils import build_temporal_batch
+from lagrangian_film_nn.losses import energy_conservation_loss
+from lagrangian_film_nn.utils import RESULTS_DIR
 
 
 # GLOBAL TRAINING VARIABLES
@@ -19,9 +20,11 @@ PRINT_EVERY = 100
 EVAL_EVERY = 300
 SEED = 5678
 
-MODEL_DIR = Path(__file__).resolve().parent.parent / "results" / "models"   # ← results/models/
+MODEL_DIR = RESULTS_DIR / "models"   # ← results/models/
 MODEL_DIR.mkdir(parents=True, exist_ok=True)            # creates it if it does not exist
 
+# AUXILIARY FUNCTIONS
+# ===================
 
 @eqx.filter_jit
 def compute_loss(model, x, y, split_size=2):
@@ -231,10 +234,10 @@ if __name__ == '__main__':
     import datetime
     import numpy as np
     import matplotlib.pyplot as plt
-    from lnn import LagrangianNN
-    from data import load_list_of_arrays_from_h5
-    from train_utils import save_model, load_model
-    from train_utils import normalize_data, train_test_split, build_input_output
+    from lagrangian_film_nn.lnn import LagrangianNN
+    from lagrangian_film_nn.data import load_list_of_arrays_from_h5
+    from lagrangian_film_nn.train_utils import save_model, load_model
+    from lagrangian_film_nn.train_utils import normalize_data, train_test_split, build_input_output
 
     # COMMAND LINE ARGUMENTS
     # =======================
@@ -245,6 +248,8 @@ if __name__ == '__main__':
                         help="Number of terms K in V = c(p)·φ(q). Ignored by the 'old' potential.")
     parser.add_argument('--seed', type=int, default=123,
                         help="Seed for model initialization and batch sampling. The data split always uses SEED.")
+    parser.add_argument('--dataset', type=str, default='dp_trajectories.h5',
+                        help="HDF5 file in data/doublependulum/ to train on. Saved with the model for inference.")
     parser.add_argument('--no-show', action='store_true',
                         help="Do not open the loss plot window at the end (for unattended runs).")
     args = parser.parse_args()
@@ -254,8 +259,8 @@ if __name__ == '__main__':
     # DATASET
     # =======
     # Dataset is a list of arrays of shape [T, 5] = (time, q1, q2, q1_t, q2_t)
-    
-    datasets, p = load_list_of_arrays_from_h5(system='doublependulum', filename='dp_trajectories.h5')
+
+    datasets, p = load_list_of_arrays_from_h5(system='doublependulum', filename=args.dataset)
     dt = datasets[0][1, 0] - datasets[0][0, 0]
     pos_dim = 2
     vel_dim = 2
@@ -347,6 +352,7 @@ if __name__ == '__main__':
         val_loss_history = val_loss_history,
         test_loss = test_loss,
         seed = args.seed,
+        dataset = args.dataset,
         n_params_potential = n_params_potential,
         norm_stats = norm_stats
     )

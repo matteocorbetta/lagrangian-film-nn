@@ -1,20 +1,22 @@
 from pathlib import Path
 import argparse
+from typing import Optional
 import jax
 import jax.numpy as jnp
+import numpy as np
 from jax.experimental.ode import odeint
 
 import matplotlib.pyplot as plt
-from data import load_list_of_arrays_from_h5
-from data.doublependulum import DoublePendulum
+from lagrangian_film_nn.data import load_list_of_arrays_from_h5
+from lagrangian_film_nn.data.doublependulum import DoublePendulum, ParameterSupport
 
-from simulate import make_rollout, save_rollout_data
-from train_utils import normalize_data, build_input_output, train_test_split, run_diagnostics, load_model
+from lagrangian_film_nn.simulate import make_rollout, save_rollout_data
+from lagrangian_film_nn.train_utils import normalize_data, build_input_output, train_test_split, run_diagnostics, load_model
+from lagrangian_film_nn.utils import RESULTS_DIR
 
 
 # GLOBAL VARS
 # ===============
-RESULTS_DIR = Path(__file__).resolve().parents[1] / "results" # <- results
 # Create specific subdirectories for different types of rollouts
 ROLLOUTS_DIR = RESULTS_DIR / "rollouts"
 OOD_RESULTS_DIR = RESULTS_DIR / "ood_tests"
@@ -29,13 +31,35 @@ SEED = 5678 # to match training and have the same test set data
 
 # FUNCTIONS
 # ===========
-def test_ood(model, norm_stats, x0, dt, n_steps, params_ood, fname_prefix: str, save_dir: Path, case_idx: int = 0):
+def resolve_dataset(model_path: Path, dataset: Optional[str] = None) -> str:
+    """Returns the dataset filename the model was trained on.
+
+    Args:
+        model_path (Path): Checkpoint path without extension; '<model_path>.npz' is read.
+        dataset (str, optional): Explicit filename. Overrides the one stored with the model;
+                                 required for models trained before it was stored.
+
+    Returns:
+        str: HDF5 filename in data/doublependulum/.
+    """
+    if dataset is not None:
+        return dataset
+    with np.load(str(model_path) + '.npz', allow_pickle=True) as run_info:
+        if 'dataset' not in run_info.files:
+            raise KeyError(f"{model_path}.npz does not store the training dataset. Pass --dataset explicitly.")
+        return str(run_info['dataset'])
+
+
+def test_ood(model, norm_stats, x0, dt, n_steps, params_ood, support: ParameterSupport,
+             fname_prefix: str, save_dir: Path, case_idx: int = 0):
     """
     Test model on out-of-distribution parameters.
     params_ood: dict with keys m1, m2, l1, l2
+    support: training-parameter support, used to report how far the case lies outside it.
     save_dir: directory where the rollout data is saved.
     """
     m1, m2, l1, l2 = params_ood['m1'], params_ood['m2'], params_ood['l1'], params_ood['l2']
+    distance = support.distance([m1, m2, l1, l2])[0]
     
     # generate ground truth trajectory
     dp = DoublePendulum(m1=m1, m2=m2, l1=l1, l2=l2)
@@ -72,7 +96,10 @@ def test_ood(model, norm_stats, x0, dt, n_steps, params_ood, fname_prefix: str, 
     state_names = [r'$q_1$', r'$q_2$', r'$\dot{q}_1$', r'$\dot{q}_2$']
     fig, axs = plt.subplots(2, 2, figsize=(12, 10))
     axs = axs.reshape(-1)
-    fig.suptitle(f'OOD test — m1={m1}, m2={m2}, l1={l1}, l2={l2}\n(training range: m∈[0.55,1.82], l∈[0.9,2.0])')
+    distance_str = ", ".join(f"{n}: {d:.2f}" for n, d in zip(support.COORD_NAMES, distance))
+    fig.suptitle(f'OOD test — m1={m1}, m2={m2}, l1={l1}, l2={l2}\n'
+                 f'training support: {support.describe()}\n'
+                 f'distance outside support [box widths]: {distance_str}')
     for i, ax in enumerate(axs):
         ax.plot(times, gt_states[:, i], label='ground truth')
         ax.plot(times, states_[:, i], '--', label='sim')
@@ -181,6 +208,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Rollouts, energy drift and OOD tests for a trained Lagrangian NN.")
     parser.add_argument('--model', type=Path, required=True,
                         help="Checkpoint path without extension, e.g. results/models/model_new_K2_s123_T512_<timestamp>.")
+    parser.add_argument('--dataset', type=str, default=None,
+                        help="HDF5 file in data/doublependulum/. Defaults to the one stored with the model.")
     args = parser.parse_args()
 
     # LOAD MODEL
@@ -199,7 +228,9 @@ if __name__ == '__main__':
     # LOAD DATA
     # =======
     # Dataset is a list of arrays of shape [T, 5] = (time, q1, q2, q1_t, q2_t)
-    datasets, p = load_list_of_arrays_from_h5(system='doublependulum', filename='dp_trajectories.h5')
+    dataset_name = resolve_dataset(args.model, args.dataset)
+    print(f"Dataset: {dataset_name}")
+    datasets, p = load_list_of_arrays_from_h5(system='doublependulum', filename=dataset_name)
     dt     = datasets[0][1, 0] - datasets[0][0, 0]
     time_v = datasets[0][:, 0]
     
@@ -213,6 +244,10 @@ if __name__ == '__main__':
     # extract
     Xtrain, Xval, Xtest = X[idx_train], X[idx_val], X[idx_test]
     dXdt_train, dXdt_val, dXdt_test = dXdt[idx_train], dXdt[idx_val], dXdt[idx_test]
+
+    # Training-parameter support: parameters are constant along a trajectory, so take t=0
+    support = ParameterSupport.from_params(np.asarray(Xtrain[:, 0, 4:]))
+    print(f"Training support: {support.describe()}")
 
     # Normalize data
     # -----------------
@@ -260,7 +295,10 @@ if __name__ == '__main__':
         jnp.array([1.5, 1.0, -1.2, 0.35]),
     ]
     for i, p_ood in enumerate(ood_cases):
-        fig = test_ood(model, norm_stats, x0s[i], dt, n_steps=n_steps, params_ood=p_ood,
+        p_vec = [p_ood['m1'], p_ood['m2'], p_ood['l1'], p_ood['l2']]
+        if not support.is_ood(p_vec)[0]:
+            print(f"WARNING: OOD case {i} {p_ood} lies inside the training support.")
+        fig = test_ood(model, norm_stats, x0s[i], dt, n_steps=n_steps, params_ood=p_ood, support=support,
                        fname_prefix=model_name, save_dir=run_ood_dir, case_idx=i)
         fig.savefig(run_ood_dir / f'{model_name}_ood_{i}.png', dpi=300)
         

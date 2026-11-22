@@ -2,7 +2,7 @@ import jax
 import equinox as eqx
 import jax.numpy as jnp
 
-import utils
+from lagrangian_film_nn import utils
 
 
 def energy_conservation_loss(model: eqx.Module, x: jax.Array, split_size: int = 2) -> jax.Array:

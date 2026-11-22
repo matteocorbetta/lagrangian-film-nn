@@ -1,14 +1,24 @@
+"""
+Generate double pendulum trajectories 
+"""
+
+# IMPORTS
+# ========
 import numpy as np
 from jax.experimental.ode import odeint
-from doublependulum import DoublePendulum, angular_state_initial_conditions, mass_length_samples
-from utils import load_list_of_arrays_from_h5
+from lagrangian_film_nn.data.doublependulum import PhysicalParameterRanges, DoublePendulum, angular_state_initial_conditions, mass_length_samples
+from lagrangian_film_nn.data.utils import load_list_of_arrays_from_h5, get_project_data_path
 
 
+# Helper functions
+# ================
 def initialize_system(sample: int, sys_properties: dict, system: str = 'doublependulum'):
     
     if system == 'doublependulum':
         masses, lengths = sys_properties['mass'][sample], sys_properties['length'][sample]
-        dp = DoublePendulum(m1=float(masses[0]), m2=float(masses[1]), l1=float(lengths[0]), l2=float(lengths[1]))
+        dp = DoublePendulum(m1=float(masses[0]), 
+                            m2=float(masses[1]), 
+                            l1=float(lengths[0]), l2=float(lengths[1]))
         integration_fun = dp.analytical_state_transition
         return integration_fun
     else:
@@ -18,44 +28,45 @@ def initialize_system(sample: int, sys_properties: dict, system: str = 'doublepe
 if __name__ == '__main__':
 
     print('Generating datasets')
+    
     import os
     import h5py
 
     # Define simulation variables:
     # ==========================
     system        = 'doublependulum'
-    save_filename = 'dp_trajectories_samples.h5'
+    save_filename = 'dp_trajectories_samples_largerrange.h5'
 
     data_type = np.float64
-    n_samples = 50
+    n_samples = 200
     t_span = [0, 20]    # time span
     n_sim_steps = 200
 
     
     num_steps = int( n_sim_steps * (t_span[1] - t_span[0]) )    # number of time steps
-    times = np.linspace(t_span[0], t_span[1], num_steps).astype(data_type)
-    times_v = times.reshape((-1,1))
-    if system == 'doublependulum':
-        # Write rejection-sampling to generate only low-energy trajectories 
-        initial_conditions = []
-        parameters = mass_length_samples(n_samples)
-        j = 0
-        while len(initial_conditions) < n_samples:
-            ic = angular_state_initial_conditions(1, data_type=data_type)
-            # dp = DoublePendulum()   # Initialize double pendulum
-            # if dp.is_low_energy(q=ic[0][:2], q_t=ic[0][2:], m1=parameters['mass'][j, 0], m2=parameters['mass'][j, 1], l1=parameters['length'][j, 0], l2=parameters['length'][j, 1]):
-            initial_conditions.append(ic)
-            j += 1
+    times     = np.linspace(t_span[0], t_span[1], num_steps + 1).astype(data_type)
+    times_v   = times.reshape((-1,1))
 
-        initial_conditions = np.stack(initial_conditions).squeeze(1)
+
+    if system == 'doublependulum':
+        
+        initial_conditions = []
+        ranges     = PhysicalParameterRanges(m1_log_std=0.5, l1_range=(0.7, 2.5))
+        parameters = mass_length_samples(n_samples, ranges=ranges)
+
+        j = 0
+        ic_list = angular_state_initial_conditions(n_samples, 
+                                                q0_range=[-np.pi, np.pi],
+                                                qt0_range=[-np.pi/4.0, np.pi/4.0],
+                                                data_type=data_type)
+        initial_conditions = np.asarray(ic_list)
+    
     else:
         initial_conditions = []
         parameters = []
 
     # --- Prepare HDF5 file for streaming writes ---
     # Construct the full path for the file, including its directory
-    # Assuming get_project_data_path is available from utils.py
-    from utils import get_project_data_path 
     full_filepath = os.path.join(get_project_data_path(system), save_filename)
     output_dir = os.path.dirname(full_filepath)
 

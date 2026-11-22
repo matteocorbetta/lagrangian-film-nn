@@ -4,25 +4,21 @@ import h5py
 import numpy as np
 import os
 
+from lagrangian_film_nn.utils import DATA_DIR
+
 # paths
 # =====
-# --- Helper function to get the project root and construct the full data path ---
 def get_project_data_path(sub_path=''):
     """
     Constructs an absolute path to a location within the project's /data directory.
-    Assumes this script is run from within the project structure (e.g., src/data/).
+
+    Args:
+        sub_path (str): Path relative to project_root/data/.
+
+    Returns:
+        str: Absolute path to project_root/data/<sub_path>.
     """
-    # Get the directory of the current script (e.g., 'path/to/project_root/src/data')
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    
-    # Navigate up to the project root (e.g., 'path/to/project_root')
-    # Assuming script is in src/data/, need to go up two levels
-    project_root = os.path.join(script_dir, '..', '..')
-    
-    # Construct the path to the desired data subdirectory
-    full_data_path = os.path.join(project_root, 'data', sub_path)
-    
-    return full_data_path
+    return os.path.join(DATA_DIR, sub_path)
 
 # Save / Load Files
 # ===================
